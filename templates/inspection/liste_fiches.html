@@ -1,0 +1,162 @@
+{% extends 'inspection/base.html' %}
+{% load static %}
+
+{% block title %}Mes fiches de contrôle — IRTSS Louga{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Carte fiche moderne */
+  .fiche-card {
+    background: white;
+    border: none;
+    border-radius: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition: all 0.25s ease;
+    margin-bottom: 1rem;
+    border-left: 4px solid transparent;
+  }
+  .fiche-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px -8px rgba(0,0,0,0.12);
+    border-left-color: #006633;
+  }
+  .fiche-badge {
+    border-radius: 40px;
+    padding: 0.35rem 1rem;
+    font-weight: 600;
+    font-size: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-icon {
+    border-radius: 40px;
+    padding: 0.35rem 0.85rem;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-icon:hover {
+    transform: translateY(-2px);
+  }
+  .filter-btn {
+    border-radius: 40px;
+    padding: 0.4rem 1.2rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .filter-btn i {
+    margin-right: 6px;
+  }
+  .filter-btn.active {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .compteur-filtre {
+    background: #f0f2f5;
+    border-radius: 40px;
+    padding: 0.2rem 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 px-lg-4">
+
+  <!-- En-tête avec compteur -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-2">
+    <div>
+      <h5 class="fw-bold mb-0 d-flex align-items-center gap-2">
+        <i class="bi bi-files text-senegal fs-4"></i>
+        Mes fiches de contrôle
+      </h5>
+      <div class="compteur-filtre mt-2">
+        <i class="bi bi-file-text me-1"></i> {{ fiches|length }} fiche{{ fiches|pluralize }}
+      </div>
+    </div>
+    <a href="{% url 'nouvelle_fiche' %}" class="btn btn-senegal-soft shadow-sm">
+      <i class="bi bi-plus-circle me-1"></i> Nouvelle fiche
+    </a>
+  </div>
+
+  <!-- Filtres -->
+  <div class="mb-4 d-flex flex-wrap gap-2">
+    <a href="{% url 'liste_fiches' %}" 
+       class="btn filter-btn {% if not statut_filtre %}btn-senegal text-white{% else %}btn-outline-secondary{% endif %}">
+      <i class="bi bi-grid-3x3-gap-fill"></i> Toutes
+    </a>
+    <a href="?statut=brouillon" 
+       class="btn filter-btn {% if statut_filtre == 'brouillon' %}btn-warning text-dark{% else %}btn-outline-warning{% endif %}">
+      <i class="bi bi-pencil"></i> Brouillons
+    </a>
+    <a href="?statut=soumis" 
+       class="btn filter-btn {% if statut_filtre == 'soumis' %}btn-success text-white{% else %}btn-outline-success{% endif %}">
+      <i class="bi bi-send-check"></i> Soumises
+    </a>
+  </div>
+
+  <!-- Liste des fiches -->
+  {% if fiches %}
+    {% for fiche in fiches %}
+    <div class="fiche-card p-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <!-- Infos principales -->
+        <div class="flex-grow-1">
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <h6 class="fw-bold mb-0">
+              <i class="bi bi-building me-1 text-secondary"></i>
+              {{ fiche.entreprise }}
+            </h6>
+            <span class="fiche-badge {% if fiche.statut == 'soumis' %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
+              {% if fiche.statut == 'soumis' %}
+                <i class="bi bi-check-lg"></i> Soumis
+              {% else %}
+                <i class="bi bi-pencil"></i> Brouillon
+              {% endif %}
+            </span>
+          </div>
+          <div class="small text-muted d-flex flex-wrap gap-x-3 gap-y-1">
+            <span><i class="bi bi-geo-alt me-1"></i> {{ fiche.lieu|default:"Lieu non renseigné" }}</span>
+            <span><i class="bi bi-calendar-event me-1"></i> {{ fiche.date_controle|date:"d/m/Y" }}</span>
+            {% if user.is_staff %}
+            <span><i class="bi bi-person-badge me-1"></i> {{ fiche.inspecteur.first_name }} {{ fiche.inspecteur.last_name }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <!-- Actions : voir, modifier, supprimer (redirection vers page de confirmation) -->
+        <div class="d-flex gap-2">
+          <a href="{% url 'detail_fiche' fiche.pk %}" class="btn btn-outline-secondary btn-icon" title="Voir">
+            <i class="bi bi-eye"></i> <span class="d-none d-sm-inline">Voir</span>
+          </a>
+          <a href="{% url 'modifier_fiche' fiche.pk %}" class="btn btn-outline-primary btn-icon" title="Modifier">
+            <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
+          </a>
+          <!-- Redirection vers la page de confirmation de suppression -->
+          <a href="{% url 'supprimer_fiche' fiche.pk %}" class="btn btn-outline-danger btn-icon" title="Supprimer">
+            <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <!-- État vide -->
+    <div class="text-center py-5 text-muted bg-white rounded-4 shadow-sm p-5">
+      <i class="bi bi-inbox display-1 opacity-25 d-block mb-3"></i>
+      <h5 class="fw-light">Aucune fiche trouvée</h5>
+      <p class="mb-3">
+        {% if statut_filtre %}
+          Aucune fiche avec le statut « {{ statut_filtre }} ».
+        {% else %}
+          Vous n’avez encore créé aucune fiche de contrôle.
+        {% endif %}
+      </p>
+      <a href="{% url 'nouvelle_fiche' %}" class="btn btn-senegal-soft mt-2">
+        <i class="bi bi-plus-circle me-1"></i> Créer ma première fiche
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

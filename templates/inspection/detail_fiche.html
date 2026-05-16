@@ -1,0 +1,400 @@
+{% extends 'inspection/base.html' %}
+{% load static %}
+
+{% block title %}{{ fiche.entreprise }} — Fiche de contrôle IRTSS{% endblock %}
+
+{% block extra_css %}
+<style>
+  .fiche-unique-card {
+    background: white;
+    border-radius: 32px;
+    box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+  .entete-officiel {
+    background: linear-gradient(135deg, #f9fbfd 0%, #ffffff 100%);
+    border-bottom: 1px solid #eef2f6;
+    padding: 1.5rem 1rem;
+  }
+  .section-interne {
+    padding: 1.5rem;
+    border-bottom: 1px solid #eef2f6;
+  }
+  .section-interne:last-of-type {
+    border-bottom: none;
+  }
+  .section-titre {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #006633;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 4px solid #006633;
+    padding-left: 12px;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.75rem 1.5rem;
+  }
+  .info-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    padding: 0.3rem 0;
+    border-bottom: 1px dashed #f0f2f5;
+  }
+  .info-label {
+    width: 140px;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.85rem;
+  }
+  .info-value {
+    flex: 1;
+    color: #1e2a3e;
+  }
+  .badge-statut {
+    border-radius: 40px;
+    padding: 0.4rem 1.2rem;
+    font-weight: 600;
+  }
+  .table-mini {
+    width: 100%;
+    background: #fafcff;
+    border-radius: 20px;
+    overflow: hidden;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .table-mini td, .table-mini th {
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid #eef2f6;
+  }
+  .table-mini th {
+    font-weight: 600;
+    color: #2c3e50;
+    width: 35%;
+  }
+  .signature-block {
+    background: #f8fafc;
+    border-radius: 20px;
+    padding: 1rem;
+    text-align: center;
+  }
+  
+  /* Styles pour l'impression PDF */
+  @media print {
+    body {
+      background: white;
+      padding: 0;
+      margin: 0;
+    }
+    .no-print {
+      display: none !important;
+    }
+    .fiche-unique-card {
+      box-shadow: none;
+      border-radius: 0;
+      margin: 0;
+    }
+    .entete-officiel {
+      background: white;
+      border: 1px solid #ddd;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .section-titre {
+      color: #006633 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .signature-block {
+      border: 1px solid #ddd;
+      break-inside: avoid;
+    }
+    .section-interne {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .info-label {
+      width: 100%;
+      margin-bottom: 0.2rem;
+    }
+    .info-item {
+      flex-direction: column;
+    }
+    .section-interne {
+      padding: 1rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 px-lg-4" style="max-width: 1100px; margin: 0 auto;">
+
+  <!-- En-tête avec actions et statut -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 no-print">
+    <div>
+      <h4 class="fw-bold mb-1 d-flex align-items-center gap-2">
+        <i class="bi bi-building text-senegal"></i>
+        {{ fiche.entreprise }}
+      </h4>
+      <div class="d-flex flex-wrap gap-3 text-muted small">
+        <span><i class="bi bi-geo-alt-fill me-1"></i>{{ fiche.lieu|default:"Lieu non spécifié" }}</span>
+        <span><i class="bi bi-calendar-event me-1"></i>{{ fiche.date_controle|date:"d/m/Y" }}</span>
+        <span><i class="bi bi-person-badge me-1"></i>{{ fiche.inspecteur.first_name }} {{ fiche.inspecteur.last_name }}</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <span class="badge-statut {% if fiche.statut == 'soumis' %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
+        {% if fiche.statut == 'soumis' %}
+          <i class="bi bi-check-circle-fill me-1"></i>Soumis
+        {% else %}
+          <i class="bi bi-pencil-square me-1"></i>Brouillon
+        {% endif %}
+      </span>
+      <a href="{% url 'modifier_fiche' fiche.pk %}" class="btn btn-outline-primary btn-sm rounded-pill">
+        <i class="bi bi-pencil me-1"></i>Modifier
+      </a>
+      <button id="btn-pdf" class="btn btn-outline-danger btn-sm rounded-pill">
+        <i class="bi bi-file-pdf me-1"></i>PDF
+      </button>
+      <a href="{% url 'liste_fiches' %}" class="btn btn-outline-secondary btn-sm rounded-pill">
+        <i class="bi bi-arrow-left me-1"></i>Retour
+      </a>
+    </div>
+  </div>
+
+  <!-- Carte unique contenant toute la fiche (sera convertie en PDF) -->
+  <div id="pdf-content" class="fiche-unique-card">
+
+    <!-- En-tête officiel (république) -->
+    <div class="entete-officiel text-center">
+      <div class="d-flex justify-content-center gap-2 mb-2">
+        <div style="width:36px;height:22px;background:#00853e;border-radius:4px;"></div>
+        <div style="width:36px;height:22px;background:#fdef42;border-radius:4px;display:flex;align-items:center;justify-content:center;">
+          <span class="fw-bold text-success">★</span>
+        </div>
+        <div style="width:36px;height:22px;background:#e31b23;border-radius:4px;"></div>
+      </div>
+      <div class="small fw-semibold text-muted">RÉPUBLIQUE DU SÉNÉGAL — Un Peuple – Un But – Une Foi</div>
+      <div class="small">Ministère de la Fonction Publique, du Travail et de la Réforme du Service Public</div>
+      <div class="small text-muted">Direction générale du Travail et de la Sécurité sociale</div>
+      <div class="small text-muted">Inspection régionale du Travail et de la Sécurité sociale de Louga</div>
+      <h5 class="fw-bold mt-2 mb-0 text-senegal">
+        <i class="bi bi-clipboard2-check me-2"></i>FICHE DE CONTRÔLE N°{{ fiche.id }}
+      </h5>
+      <div class="small mt-1"><strong>{{ fiche.lieu }}, le {{ fiche.date_controle|date:"d/m/Y" }}</strong></div>
+    </div>
+
+    <!-- SECTION 1 : Identification -->
+    <div class="section-interne">
+      <div class="section-titre"><i class="bi bi-building"></i> 1. Identification de l’entreprise</div>
+      <div class="info-grid">
+        <div class="info-item"><div class="info-label">Entreprise</div><div class="info-value fw-bold">{{ fiche.entreprise }}</div></div>
+        <div class="info-item"><div class="info-label">Adresse</div><div class="info-value">{{ fiche.adresse|default:"—" }}</div></div>
+        <div class="info-item"><div class="info-label">Téléphone</div><div class="info-value">{{ fiche.telephone|default:"—" }}</div></div>
+        <div class="info-item"><div class="info-label">E-mail</div><div class="info-value">{{ fiche.email_entreprise|default:"—" }}</div></div>
+        <div class="info-item"><div class="info-label">Date d’ouverture</div><div class="info-value">{{ fiche.date_ouverture|date:"d/m/Y"|default:"—" }}</div></div>
+        <div class="info-item"><div class="info-label">Forme juridique</div><div class="info-value">{{ fiche.forme_juridique|default:"—" }}</div></div>
+        <div class="info-item"><div class="info-label">Activité principale</div><div class="info-value">{{ fiche.activite_principale|default:"—" }}</div></div>
+      </div>
+      <div class="row mt-3 g-3">
+        <div class="col-md-6">
+          <div class="border rounded-3 p-3 bg-light">
+            <i class="bi bi-person-circle me-1 text-senegal"></i><strong> Chef d’établissement</strong><br>
+            <span>{{ fiche.chef_nom|default:"—" }}</span><br>
+            <small class="text-muted">{{ fiche.chef_cellulaire|default:"" }} {% if fiche.chef_email %} • {{ fiche.chef_email }}{% endif %}</small>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="border rounded-3 p-3 bg-light">
+            <i class="bi bi-people me-1 text-senegal"></i><strong> Représentant des travailleurs</strong><br>
+            <span>{{ fiche.representant_nom|default:"—" }}</span><br>
+            <small class="text-muted">{{ fiche.representant_qualite|default:"" }} {{ fiche.representant_cellulaire|default:"" }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2 : Dispositions administratives et effectifs -->
+    <div class="section-interne">
+      <div class="section-titre"><i class="bi bi-file-text"></i> 2. Dispositions administratives & effectifs</div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <table class="table-mini">
+            <tr><th>Déclaration d’ouverture (DOE)</th><td>{{ fiche.doe|default:"—" }}</td></tr>
+            <tr><th>Registre de paie</th><td>{{ fiche.registre_paie|default:"—" }}</td></tr>
+          </table>
+        </div>
+        <div class="col-md-6">
+          <table class="table-mini text-center">
+            <thead><tr><th>Catégorie</th><th>H</th><th>F</th><th>Total</th></tr></thead>
+            <tbody>
+              <tr><td class="text-start">Cadres</td><td>{{ fiche.cadres_hommes|default:0 }}</td><td>{{ fiche.cadres_femmes|default:0 }}</td><td><strong>{{ fiche.cadres_total|default:0 }}</strong></td></tr>
+              <tr><td class="text-start">Ouvriers</td><td>{{ fiche.ouvriers_hommes|default:0 }}</td><td>{{ fiche.ouvriers_femmes|default:0 }}</td><td><strong>{{ fiche.ouvriers_total|default:0 }}</strong></td></tr>
+            </tbody>
+            <tfoot><tr><th class="text-start">Total général</th><th colspan="2"></th><th>{{ fiche.effectif_total|default:0 }}</th></tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 3 : Contrats de travail -->
+    <div class="section-interne">
+      <div class="section-titre"><i class="bi bi-file-earmark-text"></i> 3. Contrats de travail</div>
+      <div class="row g-3">
+        <div class="col-md-6"><table class="table-mini"><tr><th>CDI</th><td>{{ fiche.cdi|default:0 }}</td></tr><tr><th>CDD</th><td>{{ fiche.cdd|default:0 }}</td></tr><tr><th>CS</th><td>{{ fiche.cs|default:0 }}</td></tr></table></div>
+        <div class="col-md-6"><table class="table-mini"><tr><th>C. d’apprentissage</th><td>{{ fiche.c_app|default:0 }}</td></tr><tr><th>Autres contrats</th><td>{{ fiche.autres_contrats|default:0 }}</td></tr><tr class="table-active"><th>Total contrats</th><td><strong>{{ fiche.contrats_total|default:0 }}</strong></td></tr></table></div>
+      </div>
+    </div>
+
+    <!-- SECTION 4 : Rémunération et conformité -->
+    <div class="section-interne">
+      <div class="section-titre"><i class="bi bi-cash-stack"></i> 4. Rémunération et conformité</div>
+      <div class="mb-3"><strong>Mode de rémunération</strong> : 
+        <span class="badge bg-light text-dark me-2">Au temps : Empl.{{ fiche.remuneration_au_temps_1|default:"—" }} / Trav.{{ fiche.remuneration_au_temps_2|default:"—" }}</span>
+        <span class="badge bg-light text-dark me-2">À la pièce : Empl.{{ fiche.remuneration_a_la_piece_1|default:"—" }} / Trav.{{ fiche.remuneration_a_la_piece_2|default:"—" }}</span>
+        <span class="badge bg-light text-dark">Les deux : Empl.{{ fiche.remuneration_les_deux_1|default:"—" }} / Trav.{{ fiche.remuneration_les_deux_2|default:"—" }}</span>
+      </div>
+      <table class="table-mini">
+        <tr><th>Salaires de base conformes ?</th><td>Employeur {{ fiche.salaires_conformes_1|default:"—" }} / Travailleurs {{ fiche.salaires_conformes_2|default:"—" }}</td></tr>
+        <tr><th>Bulletins de paie réglementaires ?</th><td>Empl. {{ fiche.bulletins_paie_1|default:"—" }} / Trav. {{ fiche.bulletins_paie_2|default:"—" }}</td></tr>
+        <tr><th>Heures supplémentaires majorées ?</th><td>Empl. {{ fiche.heures_sup_1|default:"—" }} / Trav. {{ fiche.heures_sup_2|default:"—" }}</td></tr>
+        <tr><th>Prime d’ancienneté ?</th><td>Empl. {{ fiche.prime_anciennete_1|default:"—" }} / Trav. {{ fiche.prime_anciennete_2|default:"—" }}</td></tr>
+        <tr><th>Jours fériés travaillés majorés ?</th><td>Empl. {{ fiche.jours_feries_1|default:"—" }} / Trav. {{ fiche.jours_feries_2|default:"—" }}</td></tr>
+        <tr><th>Indemnités de transport versées ?</th><td>Empl. {{ fiche.indemnites_transport_1|default:"—" }} / Trav. {{ fiche.indemnites_transport_2|default:"—" }}</td></tr>
+      </table>
+    </div>
+
+    <!-- SECTION 5 : Temps de travail -->
+    <div class="section-interne">
+      <div class="section-titre"><i class="bi bi-clock-history"></i> 5. Temps de travail</div>
+      <table class="table-mini">
+        <tr><th>Horaires affichés ?</th><td>Empl. {{ fiche.horaires_affiches_1|default:"—" }} / Trav. {{ fiche.horaires_affiches_2|default:"—" }}</td></tr>
+        <tr><th>Aménagement 8h/j – 5j</th><td>Empl. {{ fiche.amenagement_8h_5j_1|default:"—" }} / Trav. {{ fiche.amenagement_8h_5j_2|default:"—" }}</td></tr>
+        <tr><th>Aménagement 6h40/j – 6j</th><td>Empl. {{ fiche.amenagement_6h40_6j_1|default:"—" }} / Trav. {{ fiche.amenagement_6h40_6j_2|default:"—" }}</td></tr>
+        <tr><th>Respect pause quotidienne ?</th><td>Empl. {{ fiche.pause_quotidienne_1|default:"—" }} / Trav. {{ fiche.pause_quotidienne_2|default:"—" }}</td></tr>
+        <tr><th>Respect repos hebdomadaire ?</th><td>Empl. {{ fiche.repos_hebdomadaire_1|default:"—" }} / Trav. {{ fiche.repos_hebdomadaire_2|default:"—" }}</td></tr>
+      </table>
+    </div>
+
+    <!-- SECTION 6 : Sécurité sociale -->
+    <div class="section-interne">
+      <div class="section-titre"><i class="bi bi-shield-heart"></i> 6. Sécurité sociale</div>
+      <table class="table-mini">
+        <tr><th>Déclaration CSS</th><td>Empl. {{ fiche.declaration_css_1|default:"—" }} / Trav. {{ fiche.declaration_css_2|default:"—" }}</td></tr>
+        <tr><th>Adhésion IPS – CSS</th><td>Empl. {{ fiche.adhesion_css_1|default:"—" }} / Trav. {{ fiche.adhesion_css_2|default:"—" }}</td></tr>
+        <tr><th>Adhésion IPS – IPRES</th><td>Empl. {{ fiche.adhesion_ipres_1|default:"—" }} / Trav. {{ fiche.adhesion_ipres_2|default:"—" }}</td></tr>
+        <tr><th>Adhésion IPS – IPM</th><td>Empl. {{ fiche.adhesion_ipm_1|default:"—" }} / Trav. {{ fiche.adhesion_ipm_2|default:"—" }}</td></tr>
+        <tr><th>Cotisations CSS à jour ?</th><td>Empl. {{ fiche.cotisations_css_1|default:"—" }} / Trav. {{ fiche.cotisations_css_2|default:"—" }}</td></tr>
+        <tr><th>Cotis. IPRES à jour ?</th><td>Empl. {{ fiche.cotisations_ipres_1|default:"—" }} / Trav. {{ fiche.cotisations_ipres_2|default:"—" }}</td></tr>
+        <tr><th>Cotis. IPM à jour ?</th><td>Empl. {{ fiche.cotisations_ipm_1|default:"—" }} / Trav. {{ fiche.cotisations_ipm_2|default:"—" }}</td></tr>
+      </table>
+    </div>
+
+    <!-- SECTION 7 : Divers -->
+    <div class="section-interne">
+      <div class="section-titre"><i class="bi bi-grid-3x3-gap-fill"></i> 7. Divers – hygiène, sécurité, représentation</div>
+      <table class="table-mini">
+        <tr><th>Délégués du personnel (DP)</th><td>Empl. {{ fiche.delegues_personnel_1|default:"—" }} / Trav. {{ fiche.delegues_personnel_2|default:"—" }}</td></tr>
+        <tr><th>Règlement intérieur</th><td>Empl. {{ fiche.reglement_interieur_1|default:"—" }} / Trav. {{ fiche.reglement_interieur_2|default:"—" }}</td></tr>
+        <tr><th>Comité HST</th><td>Empl. {{ fiche.comite_hst_1|default:"—" }} / Trav. {{ fiche.comite_hst_2|default:"—" }}</td></tr>
+        <tr><th>Visite médicale annuelle</th><td>Empl. {{ fiche.visite_medicale_1|default:"—" }} / Trav. {{ fiche.visite_medicale_2|default:"—" }}</td></tr>
+        <tr><th>Extincteurs à jour</th><td>Empl. {{ fiche.extincteurs_1|default:"—" }} / Trav. {{ fiche.extincteurs_2|default:"—" }}</td></tr>
+        <tr><th>EPI disponibles</th><td>Empl. {{ fiche.epi_disponible_1|default:"—" }} / Trav. {{ fiche.epi_disponible_2|default:"—" }}</td></tr>
+        <tr><th>Port effectif des EPI</th><td>Empl. {{ fiche.epi_effectif_1|default:"—" }} / Trav. {{ fiche.epi_effectif_2|default:"—" }}</td></tr>
+        <tr><th>Toilettes / WC suffisants</th><td>Empl. {{ fiche.toilettes_1|default:"—" }} / Trav. {{ fiche.toilettes_2|default:"—" }}</td></tr>
+        <tr><th>Congés payés avec allocations</th><td>Empl. {{ fiche.conges_1|default:"—" }} / Trav. {{ fiche.conges_2|default:"—" }}</td></tr>
+        <tr><th>DASMO / Bilan social</th><td>Empl. {{ fiche.dasmo_bs_1|default:"—" }} / Trav. {{ fiche.dasmo_bs_2|default:"—" }}</td></tr>
+      </table>
+      {% if fiche.observations_divers %}
+      <div class="mt-3 p-2 bg-light rounded-3">
+        <strong><i class="bi bi-chat-dots me-1"></i>Observations :</strong> {{ fiche.observations_divers }}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- SECTION 8 : Conclusions -->
+    <div class="section-interne">
+      <div class="section-titre"><i class="bi bi-flag"></i> 8. Conclusions, suites et signatures</div>
+      {% if fiche.observations_generales %}
+      <div class="mb-4 p-3 bg-light rounded-3">
+        <strong><i class="bi bi-chat-quote me-1"></i>Observations générales :</strong><br>
+        {{ fiche.observations_generales|linebreaks }}
+      </div>
+      {% endif %}
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-6">
+          <strong><i class="bi bi-list-check me-1"></i>Suite réservée au contrôle</strong>
+          <ul class="list-unstyled mt-2">
+            {% if fiche.suite_observations_orales %}<li><i class="bi bi-check-circle-fill text-senegal me-2"></i>Observations orales</li>{% endif %}
+            {% if fiche.suite_observations_ecrites %}<li><i class="bi bi-check-circle-fill text-senegal me-2"></i>Observations écrites</li>{% endif %}
+            {% if fiche.suite_mise_en_demeure %}<li><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Mise en demeure</li>{% endif %}
+            {% if fiche.suite_pv_infraction %}<li><i class="bi bi-file-earmark-text-fill text-danger me-2"></i>Procès-verbal d’infraction</li>{% endif %}
+            {% if fiche.suite_refere %}<li><i class="bi bi-gavel text-danger me-2"></i>Référé</li>{% endif %}
+          </ul>
+        </div>
+        <div class="col-md-6">
+          <strong><i class="bi bi-hourglass-split me-1"></i>Délai de remédiation</strong>
+          <ul class="list-unstyled mt-2">
+            {% if fiche.delai_reception %}<li><i class="bi bi-check-square me-2"></i>Dès réception</li>{% endif %}
+            {% if fiche.delai_un_mois %}<li><i class="bi bi-check-square me-2"></i>Dans un mois</li>{% endif %}
+            {% if fiche.delai_autres %}<li><i class="bi bi-check-square me-2"></i>Autre : {{ fiche.delai_autres_precision|default:"" }}</li>{% endif %}
+          </ul>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="signature-block">
+            <i class="bi bi-pen fs-4 text-senegal"></i>
+            <div class="small text-muted mb-1">L’équipe de contrôle</div>
+            <strong>{{ fiche.signature_equipe|default:"—" }}</strong>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="signature-block">
+            <i class="bi bi-pen fs-4 text-senegal"></i>
+            <div class="small text-muted mb-1">Le gérant / Directeur</div>
+            <strong>{{ fiche.signature_gerant|default:"—" }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Métadonnées -->
+    <div class="text-center text-muted small py-3 border-top">
+      <i class="bi bi-clock me-1"></i> Créée le {{ fiche.created_at|date:"d/m/Y à H:i" }} | 
+      Dernière modification le {{ fiche.updated_at|date:"d/m/Y à H:i" }}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Bibliothèque html2pdf.js pour générer les PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  document.getElementById('btn-pdf').addEventListener('click', function() {
+    const element = document.getElementById('pdf-content');
+    const opt = {
+      margin:        [0.5, 0.5, 0.5, 0.5], // marges en inches (top, right, bottom, left)
+      filename:     'Fiche_controle_{{ fiche.entreprise|slugify }}_{{ fiche.date_controle|date:"d-m-Y" }}.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, letterRendering: true, useCORS: true, logging: false },
+      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
+  });
+</script>
+{% endblock %}

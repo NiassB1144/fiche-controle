@@ -1,0 +1,100 @@
+{% extends 'inspection/base.html' %}
+{% load static %}
+
+{% block title %}Supprimer la fiche — IRTSS Louga{% endblock %}
+
+{% block extra_css %}
+<style>
+  .delete-card {
+    max-width: 550px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 32px;
+    box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+  .delete-header {
+    background: linear-gradient(135deg, #dc3545, #b02a37);
+    padding: 1.2rem;
+    text-align: center;
+  }
+  .delete-icon {
+    font-size: 3rem;
+    color: white;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  }
+  .delete-body {
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+  .entreprise-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e2a3e;
+    margin: 0.5rem 0;
+  }
+  .warning-text {
+    background: #fff3e0;
+    border-left: 4px solid #ffc107;
+    padding: 0.8rem;
+    border-radius: 16px;
+    font-size: 0.9rem;
+    margin-top: 1.5rem;
+  }
+  .btn-modern {
+    border-radius: 40px;
+    padding: 0.5rem 1.5rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .btn-modern:hover {
+    transform: translateY(-2px);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-4" style="min-height: 70vh; display: flex; align-items: center;">
+  <div class="delete-card">
+    <!-- En-tête avec icône d'avertissement -->
+    <div class="delete-header">
+      <i class="bi bi-trash3-fill delete-icon"></i>
+      <h5 class="text-white mt-2 mb-0 fw-bold">Confirmation de suppression</h5>
+    </div>
+
+    <!-- Corps du message -->
+    <div class="delete-body">
+      <p class="text-muted mb-2">Vous êtes sur le point de supprimer définitivement la fiche de :</p>
+      <div class="entreprise-name">
+        <i class="bi bi-building text-senegal me-2"></i>{{ fiche.entreprise }}
+      </div>
+      <div class="d-flex justify-content-center gap-3 text-muted small mt-2">
+        <span><i class="bi bi-calendar-event me-1"></i>{{ fiche.date_controle|date:"d/m/Y" }}</span>
+        <span><i class="bi bi-geo-alt me-1"></i>{{ fiche.lieu|default:"Lieu non spécifié" }}</span>
+      </div>
+
+      <div class="warning-text">
+        <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+        <strong>Action irréversible</strong> — Cette fiche sera supprimée de la base de données et ne pourra pas être récupérée.
+      </div>
+
+      <div class="d-flex flex-wrap gap-3 justify-content-center mt-4">
+        <a href="{% url 'detail_fiche' fiche.pk %}" class="btn btn-outline-secondary btn-modern">
+          <i class="bi bi-arrow-left me-1"></i>Annuler
+        </a>
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger btn-modern">
+            <i class="bi bi-trash3 me-1"></i>Supprimer définitivement
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Petit pied discrètement informatif -->
+    <div class="text-center text-muted small py-2 border-top">
+      <i class="bi bi-clock-history me-1"></i> Fiche créée le {{ fiche.created_at|date:"d/m/Y" }}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends 'inspection/base.html' %}
+{% load static %}
+
+{% block title %}Administration — IRTSS Louga{% endblock %}
+
+{% block extra_css %}
+<style>
+  .admin-card {
+    border: none;
+    border-radius: 32px;
+    box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s;
+    height: 100%;
+  }
+  .admin-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.1);
+  }
+  .card-header-modern {
+    background: linear-gradient(120deg, #006633, #008844);
+    padding: 1rem 1.2rem;
+    border: none;
+  }
+  .form-control-modern, .form-select-modern {
+    border-radius: 60px;
+    border: 1px solid #e2e8f0;
+    padding: 0.6rem 1rem;
+    transition: all 0.2s;
+  }
+  .form-control-modern:focus, .form-select-modern:focus {
+    border-color: #006633;
+    box-shadow: 0 0 0 3px rgba(0,102,51,0.1);
+  }
+  .user-item {
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+  }
+  .user-item:hover {
+    background-color: #f8fafc;
+    border-left-color: #006633;
+    transform: translateX(4px);
+  }
+  .badge-role {
+    border-radius: 60px;
+    padding: 0.3rem 0.9rem;
+    font-weight: 500;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 px-lg-4">
+  <!-- En-tête -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-2">
+    <h5 class="fw-bold mb-0 d-flex align-items-center gap-2">
+      <i class="bi bi-shield-lock-fill text-senegal fs-4"></i>
+      Administration des utilisateurs
+    </h5>
+    <span class="badge bg-secondary bg-opacity-10 text-dark rounded-pill px-3 py-2">
+      <i class="bi bi-people me-1"></i> {{ utilisateurs.count }} compte(s)
+    </span>
+  </div>
+
+  <div class="row g-4">
+    <!-- Colonne : Formulaire de création -->
+    <div class="col-12 col-md-5">
+      <div class="admin-card">
+        <div class="card-header-modern text-white">
+          <h6 class="mb-0 fw-bold"><i class="bi bi-person-plus-fill me-2"></i>Créer un nouvel utilisateur</h6>
+        </div>
+        <div class="card-body p-4">
+          <form method="post" action="{% url 'creer_utilisateur' %}">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+              <label class="form-label small fw-semibold"><i class="bi bi-person me-1"></i>Prénom</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-person text-senegal"></i></span>
+                {{ form.prenom }}
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label small fw-semibold"><i class="bi bi-person me-1"></i>Nom</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-person-badge text-senegal"></i></span>
+                {{ form.nom }}
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label small fw-semibold"><i class="bi bi-envelope me-1"></i>Email</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-envelope-fill text-senegal"></i></span>
+                {{ form.email }}
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label small fw-semibold"><i class="bi bi-key me-1"></i>Mot de passe</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-lock-fill text-senegal"></i></span>
+                {{ form.mot_de_passe }}
+              </div>
+              <div class="form-text small">8 caractères minimum, incluant chiffres et lettres.</div>
+            </div>
+            
+            <div class="mb-4">
+              <label class="form-label small fw-semibold"><i class="bi bi-toggles me-1"></i>Rôle</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-briefcase-fill text-senegal"></i></span>
+                {{ form.role }}
+              </div>
+            </div>
+            
+            <button type="submit" class="btn btn-senegal w-100 rounded-pill py-2 fw-semibold">
+              <i class="bi bi-person-plus me-2"></i>Créer le compte
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Colonne : Liste des utilisateurs -->
+    <div class="col-12 col-md-7">
+      <div class="admin-card">
+        <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+          <h6 class="mb-0 fw-bold"><i class="bi bi-people-fill me-2 text-senegal"></i>Comptes existants</h6>
+          <i class="bi bi-database text-muted"></i>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for u in utilisateurs %}
+          <div class="list-group-item user-item px-4 py-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div class="flex-grow-1">
+                <div class="fw-bold d-flex align-items-center gap-2">
+                  {{ u.first_name }} {{ u.last_name }}
+                  {% if u == request.user %}
+                    <span class="badge bg-primary rounded-pill px-2 py-1 fs-7">Vous</span>
+                  {% endif %}
+                </div>
+                <div class="small text-muted mt-1">
+                  <i class="bi bi-envelope me-1"></i> {{ u.email }}
+                </div>
+                <div class="mt-2">
+                  <span class="badge-role {% if u.is_staff %}bg-danger bg-opacity-10 text-danger{% else %}bg-secondary bg-opacity-10 text-secondary{% endif %}">
+                    <i class="bi {% if u.is_staff %}bi-shield-check{% else %}bi-person-check{% endif %} me-1"></i>
+                    {% if u.is_staff %}Administrateur{% else %}Inspecteur{% endif %}
+                  </span>
+                </div>
+              </div>
+              {% if u != request.user %}
+              <form method="post" action="{% url 'supprimer_utilisateur' u.pk %}" onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer définitivement le compte de {{ u.first_name }} {{ u.last_name }} ?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                  <i class="bi bi-trash3 me-1"></i> Supprimer
+                </button>
+              </form>
+              {% else %}
+              <span class="text-muted small"><i class="bi bi-star-fill text-warning me-1"></i>Compte actif</span>
+              {% endif %}
+            </div>
+          </div>
+          {% empty %}
+          <div class="text-center py-5 text-muted">
+            <i class="bi bi-people display-4 opacity-25 d-block mb-2"></i>
+            <p>Aucun utilisateur pour le moment.</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends 'inspection/base.html' %}
+{% load static %}
+
+{% block title %}Tableau de bord — IRTSS Louga{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Carte statistique moderne */
+  .stat-card {
+    background: white;
+    border: none;
+    border-radius: 28px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: default;
+    overflow: hidden;
+    position: relative;
+  }
+  .stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.1);
+  }
+  .stat-icon {
+    position: absolute;
+    bottom: 12px;
+    right: 16px;
+    font-size: 3rem;
+    opacity: 0.12;
+    transition: opacity 0.2s;
+  }
+  .stat-card:hover .stat-icon {
+    opacity: 0.2;
+  }
+  .stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .stat-label {
+    font-size: 0.85rem;
+    color: #5a6e7c;
+    letter-spacing: 0.3px;
+  }
+  
+  /* Ligne de séparation dans liste des fiches */
+  .fiche-item {
+    transition: background 0.15s ease;
+    border-left: 3px solid transparent;
+  }
+  .fiche-item:hover {
+    background-color: #f8fafc;
+    border-left-color: #006633;
+  }
+  .badge-statut {
+    border-radius: 40px;
+    padding: 0.35rem 0.85rem;
+    font-weight: 500;
+    font-size: 0.7rem;
+  }
+  
+  /* Bouton secondaire harmonisé */
+  .btn-outline-senegal {
+    border: 1px solid #006633;
+    color: #006633;
+    border-radius: 40px;
+    padding: 0.35rem 1.1rem;
+    transition: all 0.2s;
+  }
+  .btn-outline-senegal:hover {
+    background: #006633;
+    color: white;
+    transform: translateY(-1px);
+  }
+  .btn-senegal-soft {
+    background: #e0f2e9;
+    color: #004d26;
+    border-radius: 40px;
+    padding: 0.5rem 1.2rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .btn-senegal-soft:hover {
+    background: #c2e0d4;
+    transform: translateY(-2px);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 px-lg-4">
+
+  <!-- En-tête de bienvenue -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-2">
+    <div>
+      <h5 class="fw-bold mb-0 d-flex align-items-center gap-2">
+        <i class="bi bi-emoji-wave text-senegal fs-4"></i>
+        Bonjour, {{ user.first_name }} {{ user.last_name }}
+      </h5>
+      <small class="text-muted">
+        <i class="bi bi-briefcase-fill me-1"></i>
+        {% if user.is_staff %}Administrateur IRTSS{% else %}Inspecteur du travail{% endif %}
+      </small>
+    </div>
+    <a href="{% url 'nouvelle_fiche' %}" class="btn btn-senegal-soft shadow-sm">
+      <i class="bi bi-plus-circle me-1"></i> Nouvelle fiche
+    </a>
+  </div>
+
+  <!-- Cartes statistiques (améliorées) -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="stat-card p-3">
+        <div class="stat-value text-senegal">{{ total|default:"0" }}</div>
+        <div class="stat-label">Total fiches</div>
+        <i class="bi bi-files stat-icon"></i>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card p-3">
+        <div class="stat-value text-warning">{{ brouillons|default:"0" }}</div>
+        <div class="stat-label">Brouillons</div>
+        <i class="bi bi-pencil-square stat-icon"></i>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card p-3">
+        <div class="stat-value text-success">{{ soumises|default:"0" }}</div>
+        <div class="stat-label">Soumises</div>
+        <i class="bi bi-send-check stat-icon"></i>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card p-3">
+        <div class="stat-value text-info">{{ cette_annee|default:"0" }}</div>
+        <div class="stat-label">Cette année</div>
+        <i class="bi bi-calendar-range stat-icon"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerte hors ligne (optionnelle, gérée par JS de base) -->
+  <div id="alerte-hors-ligne" class="alert alert-warning py-2 d-none mb-3 rounded-4 shadow-sm" role="alert">
+    <i class="bi bi-wifi-off me-2"></i>
+    <strong>Mode hors connexion</strong> — Les fiches sont sauvegardées localement et seront synchronisées automatiquement.
+  </div>
+
+  <!-- Section fiches récentes -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center border-0">
+      <h6 class="mb-0 fw-bold">
+        <i class="bi bi-clock-history me-2 text-senegal"></i>Dernières fiches de contrôle
+      </h6>
+      <a href="{% url 'liste_fiches' %}" class="btn btn-outline-senegal btn-sm">
+        <i class="bi bi-arrow-right-short"></i> Voir tout
+      </a>
+    </div>
+    <div class="card-body p-0">
+      {% if recentes %}
+      <div class="list-group list-group-flush">
+        {% for fiche in recentes %}
+        <a href="{% url 'detail_fiche' fiche.pk %}" class="list-group-item list-group-item-action fiche-item px-3 py-3">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+            <div class="flex-grow-1">
+              <div class="fw-semibold fs-6">
+                <i class="bi bi-building me-1 text-secondary"></i>{{ fiche.entreprise }}
+              </div>
+              <div class="small text-muted mt-1 d-flex flex-wrap gap-2">
+                <span><i class="bi bi-geo-alt me-1"></i>{{ fiche.lieu|default:"Lieu non renseigné" }}</span>
+                <span><i class="bi bi-calendar2-event me-1"></i>{{ fiche.date_controle|date:"d/m/Y" }}</span>
+                {% if user.is_staff %}
+                <span><i class="bi bi-person-badge me-1"></i>{{ fiche.inspecteur.first_name }} {{ fiche.inspecteur.last_name }}</span>
+                {% endif %}
+              </div>
+            </div>
+            <div>
+              <span class="badge-statut {% if fiche.statut == 'soumis' %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
+                <i class="bi {% if fiche.statut == 'soumis' %}bi-check-lg{% else %}bi-pencil{% endif %} me-1"></i>
+                {{ fiche.get_statut_display }}
+              </span>
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-file-earmark-plus display-4 d-block mb-3 opacity-25"></i>
+        <p class="mb-2 fs-5 fw-light">Aucune fiche enregistrée</p>
+        <a href="{% url 'nouvelle_fiche' %}" class="btn btn-senegal-soft mt-2">
+          <i class="bi bi-plus-circle me-1"></i>Créer ma première fiche
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Gestion de l'affichage de l'alerte hors ligne si nécessaire (complément à base.html)
+  const offlineAlert = document.getElementById('alerte-hors-ligne');
+  if (offlineAlert) {
+    function toggleOfflineAlert() {
+      if (!navigator.onLine) {
+        offlineAlert.classList.remove('d-none');
+      } else {
+        offlineAlert.classList.add('d-none');
+      }
+    }
+    window.addEventListener('online', toggleOfflineAlert);
+    window.addEventListener('offline', toggleOfflineAlert);
+    toggleOfflineAlert();
+  }
+</script>
+{% endblock %}

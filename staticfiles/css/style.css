@@ -1,0 +1,115 @@
+:root {
+  --sn-vert: #006633;
+  --sn-jaune: #FDEF42;
+  --sn-rouge: #BB0000;
+}
+
+body {
+  font-size: 0.9rem;
+  background-color: #f5f6f8;
+}
+
+.bg-senegal { background-color: var(--sn-vert) !important; }
+.text-senegal { color: var(--sn-vert) !important; }
+.btn-senegal {
+  background-color: var(--sn-vert);
+  border-color: #005228;
+  color: #fff;
+}
+.btn-senegal:hover, .btn-senegal:focus {
+  background-color: #005228;
+  border-color: #003d1e;
+  color: #fff;
+}
+
+/* Drapeau sénégalais stylisé */
+.drapeau-sn-vert, .drapeau-sn-jaune, .drapeau-sn-rouge {
+  width: 20px;
+  height: 30px;
+  border-radius: 2px;
+}
+.drapeau-sn-vert { background-color: var(--sn-vert); }
+.drapeau-sn-jaune { background-color: var(--sn-jaune); }
+.drapeau-sn-rouge { background-color: var(--sn-rouge); }
+.etoile-sn { color: var(--sn-vert); font-size: 14px; }
+
+/* Navbar */
+.navbar { box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+.nav-secondary { box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.nav-secondary .nav-link { font-size: 0.85rem; padding: .25rem .6rem; }
+.nav-secondary .nav-link.active { background-color: var(--sn-vert); color: #fff !important; }
+
+/* Steps indicator */
+.step-indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #dee2e6;
+  color: #6c757d;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.step-indicator.active {
+  background: var(--sn-vert);
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(0,102,51,.25);
+}
+.step-indicator.done {
+  background: #198754;
+  color: #fff;
+}
+
+/* Tables responsive */
+.table-responsive { -webkit-overflow-scrolling: touch; }
+.table td, .table th { vertical-align: middle; font-size: 0.85rem; }
+
+/* Forms */
+.form-select-sm, .form-control-sm { font-size: 0.82rem; }
+.form-label { font-size: 0.85rem; }
+
+/* Cards */
+.card { border-radius: 10px; }
+.card-header { border-radius: 10px 10px 0 0 !important; }
+
+/* Footer */
+.footer { font-size: 0.75rem; color: #6c757d; }
+
+/* En-tête officiel */
+.entete-officiel { font-size: 0.78rem; }
+
+/* Connexion */
+.card.shadow-sm { border-radius: 14px; }
+
+/* PWA install prompt */
+#pwa-install-banner {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--sn-vert);
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 9999;
+  box-shadow: 0 -2px 8px rgba(0,0,0,.2);
+}
+
+/* Hors-ligne indicator */
+#statut-connexion { font-size: 0.72rem; min-width: 80px; text-align: center; }
+
+/* Mobile optimizations */
+@media (max-width: 576px) {
+  .display-6 { font-size: 1.8rem; }
+  .container-fluid { padding-left: 10px !important; padding-right: 10px !important; }
+  .table td, .table th { font-size: 0.78rem; padding: .3rem .4rem; }
+}
+
+/* Print */
+@media print {
+  .navbar, .nav-secondary, footer, .btn, .no-print { display: none !important; }
+  .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+}
