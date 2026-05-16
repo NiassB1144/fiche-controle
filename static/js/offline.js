@@ -1,27 +1,19 @@
-/**
- * offline.js — Gestion hors-ligne pour Fiche de Contrôle IRTSS Louga
- * Sauvegarde les fiches dans IndexedDB quand hors-ligne
- * Synchronise automatiquement au retour de connexion
- */
+// ============================================================
+// offline.js — Gestion hors-ligne des fiches de contrôle
+// ============================================================
 
 const DB_NAME = 'ficheControleDB';
 const DB_VERSION = 1;
-const STORE_FICHES = 'fiches_hors_ligne';
+const STORE_NAME = 'fiches_pending';
 
-// ─────────────────────────────────────────
-// 1. INITIALISATION IndexedDB
-// ─────────────────────────────────────────
-
-function ouvrirDB() {
+// Ouvrir / créer la base IndexedDB
+function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE_FICHES)) {
-        const store = db.createObjectStore(STORE_FICHES, {
-          keyPath: 'local_id',
-        });
-        store.createIndex('statut_sync', 'statut_sync', { unique: false });
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'local_id' });
       }
     };
     req.onsuccess = (e) => resolve(e.target.result);
@@ -29,318 +21,184 @@ function ouvrirDB() {
   });
 }
 
-// ─────────────────────────────────────────
-// 2. SAUVEGARDER une fiche localement
-// ─────────────────────────────────────────
+// Sauvegarder une fiche localement
+async function saveFicheLocally(formData) {
+  const db = await openDB();
+  const fiche = {};
+  for (const [key, value] of formData.entries()) {
+    fiche[key] = value;
+  }
+  fiche.local_id = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  fiche.statut = fiche.statut || 'brouillon';
+  fiche.saved_at = new Date().toISOString();
 
-async function sauvegarderFicheLocale(donnees) {
-  const db = await ouvrirDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_FICHES, 'readwrite');
-    const store = tx.objectStore(STORE_FICHES);
-
-    // local_id unique basé sur timestamp
-    if (!donnees.local_id) {
-      donnees.local_id = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    }
-    donnees.statut_sync = 'en_attente';
-    donnees.created_at_local = new Date().toISOString();
-
-    const req = store.put(donnees);
-    req.onsuccess = () => resolve(donnees.local_id);
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.put(fiche);
+    req.onsuccess = () => resolve(fiche.local_id);
     req.onerror = (e) => reject(e.target.error);
   });
 }
 
-// ─────────────────────────────────────────
-// 3. RÉCUPÉRER les fiches en attente
-// ─────────────────────────────────────────
-
-async function getFichesEnAttente() {
-  const db = await ouvrirDB();
+// Lire toutes les fiches en attente
+async function getPendingFiches() {
+  const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_FICHES, 'readonly');
-    const store = tx.objectStore(STORE_FICHES);
-    const index = store.index('statut_sync');
-    const req = index.getAll('en_attente');
-    req.onsuccess = (e) => resolve(e.target.result);
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
-
-// ─────────────────────────────────────────
-// 4. TOUTES les fiches locales
-// ─────────────────────────────────────────
-
-async function getToutesFichesLocales() {
-  const db = await ouvrirDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_FICHES, 'readonly');
-    const store = tx.objectStore(STORE_FICHES);
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
     const req = store.getAll();
     req.onsuccess = (e) => resolve(e.target.result);
     req.onerror = (e) => reject(e.target.error);
   });
 }
 
-// ─────────────────────────────────────────
-// 5. MARQUER une fiche comme synchronisée
-// ─────────────────────────────────────────
-
-async function marquerFicheSynchronisee(local_id, server_id) {
-  const db = await ouvrirDB();
+// Supprimer une fiche locale après sync
+async function deletePendingFiche(local_id) {
+  const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_FICHES, 'readwrite');
-    const store = tx.objectStore(STORE_FICHES);
-    const getReq = store.get(local_id);
-    getReq.onsuccess = (e) => {
-      const fiche = e.target.result;
-      if (fiche) {
-        fiche.statut_sync = 'synchronisee';
-        fiche.server_id = server_id;
-        store.put(fiche);
-      }
-      resolve();
-    };
-    getReq.onerror = (e) => reject(e.target.error);
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.delete(local_id);
+    req.onsuccess = () => resolve();
+    req.onerror = (e) => reject(e.target.error);
   });
 }
 
-// ─────────────────────────────────────────
-// 6. SYNCHRONISATION avec le serveur
-// ─────────────────────────────────────────
+// Compter les fiches en attente
+async function countPendingFiches() {
+  const fiches = await getPendingFiches();
+  return fiches.length;
+}
 
-async function synchroniserFiches() {
+// Lire un cookie par son nom
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return '';
+}
+
+// Synchroniser avec le serveur
+async function syncFiches() {
   if (!navigator.onLine) return;
+  const pending = await getPendingFiches();
+  if (pending.length === 0) return;
 
-  const fiches = await getFichesEnAttente();
-  if (fiches.length === 0) return;
-
-  console.log(`[Sync] ${fiches.length} fiche(s) en attente de synchronisation...`);
-
+  console.log(`[Sync] ${pending.length} fiche(s) en attente...`);
   try {
-    // Récupérer le token CSRF depuis le cookie
-    const csrf = getCookie('csrftoken');
-
     const response = await fetch('/api/sync/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': csrf,
+        'X-CSRFToken': getCookie('csrftoken'),
       },
-      body: JSON.stringify({ fiches }),
+      body: JSON.stringify({ fiches: pending }),
     });
 
-    if (!response.ok) {
-      console.error('[Sync] Erreur serveur:', response.status);
-      return;
+    if (response.ok) {
+      const result = await response.json();
+      for (const fiche of pending) {
+        await deletePendingFiche(fiche.local_id);
+      }
+      updateBannerCount();
+      showSyncNotification(result.synchronisees);
     }
-
-    const result = await response.json();
-    console.log(`[Sync] ${result.synchronisees} fiche(s) synchronisée(s)`);
-
-    // Marquer chaque fiche comme synchronisée
-    for (const item of result.fiches) {
-      await marquerFicheSynchronisee(item.local_id, item.id);
-    }
-
-    // Mettre à jour le badge
-    mettreAJourBadgeSync();
-
-    // Afficher notification de succès
-    afficherNotificationSync(result.synchronisees);
-
   } catch (err) {
-    console.error('[Sync] Échec de la synchronisation:', err);
+    console.warn('[Sync] Echec :', err);
   }
 }
 
-// ─────────────────────────────────────────
-// 7. INTERCEPTER le formulaire hors-ligne
-// ─────────────────────────────────────────
+// Mettre à jour la bannière
+async function updateBannerCount() {
+  const count = await countPendingFiches();
+  const banner = document.getElementById('sync-banner');
+  const badge = document.getElementById('sync-count');
+  if (!banner) return;
+  if (count > 0) {
+    banner.style.display = 'flex';
+    if (badge) badge.textContent = count;
+  } else {
+    banner.style.display = 'none';
+  }
+}
 
-function intercepterFormulaire() {
+// Notification de sync réussie
+function showSyncNotification(count) {
+  const notif = document.createElement('div');
+  notif.style.cssText = `
+    position:fixed; bottom:20px; right:20px; z-index:9999;
+    background:#006633; color:white;
+    padding:0.8rem 1.4rem; border-radius:40px;
+    box-shadow:0 4px 16px rgba(0,102,51,0.3);
+    font-weight:600; font-size:0.9rem;
+    display:flex; align-items:center; gap:8px;
+  `;
+  notif.innerHTML = `<i class="bi bi-cloud-check-fill"></i> ${count} fiche(s) synchronisée(s) !`;
+  document.body.appendChild(notif);
+  setTimeout(() => notif.remove(), 4000);
+}
+
+// Confirmation hors-ligne
+function showOfflineConfirmation() {
+  const alertDiv = document.createElement('div');
+  alertDiv.style.cssText = `
+    position:fixed; top:80px; left:50%; transform:translateX(-50%);
+    z-index:9999; min-width:320px; max-width:90vw;
+    background:#fff3cd; color:#856404;
+    border:1px solid #ffc107; border-radius:20px;
+    padding:1rem 1.5rem; text-align:center;
+    box-shadow:0 8px 20px rgba(0,0,0,0.1); font-weight:500;
+  `;
+  alertDiv.innerHTML = `
+    <i class="bi bi-wifi-off me-2"></i>
+    <strong>Fiche sauvegardée localement.</strong><br>
+    <small>Elle sera envoyée automatiquement dès le retour de la connexion.</small>
+    <br><br>
+    <a href="/fiches/" style="color:#006633; font-weight:600;">
+      <i class="bi bi-arrow-left me-1"></i>Retour à mes fiches
+    </a>
+  `;
+  document.body.appendChild(alertDiv);
+  setTimeout(() => alertDiv.remove(), 8000);
+}
+
+// Intercepter le formulaire de fiche hors-ligne
+function interceptFicheForm() {
   const form = document.getElementById('form-fiche');
   if (!form) return;
 
   form.addEventListener('submit', async function (e) {
-    // Si en ligne → comportement normal
-    if (navigator.onLine) return;
-
-    // Si hors-ligne → on intercepte
+    if (navigator.onLine) return; // En ligne → Django gère
     e.preventDefault();
 
     const formData = new FormData(form);
-    const donnees = {};
-
-    for (const [key, value] of formData.entries()) {
-      if (key === 'csrfmiddlewaretoken') continue;
-      // Gérer les checkboxes (valeurs multiples)
-      if (donnees[key] !== undefined) {
-        if (!Array.isArray(donnees[key])) donnees[key] = [donnees[key]];
-        donnees[key].push(value);
-      } else {
-        donnees[key] = value;
-      }
-    }
-
-    // Valeur par défaut pour les champs obligatoires
-    if (!donnees.entreprise) donnees.entreprise = 'Sans nom (hors-ligne)';
-    if (!donnees.date_controle) donnees.date_controle = new Date().toISOString().split('T')[0];
-    if (!donnees.lieu) donnees.lieu = 'Louga';
-    donnees.statut = donnees.statut || 'brouillon';
+    const action = e.submitter ? e.submitter.value : 'enregistrer';
+    formData.set('action', action);
 
     try {
-      const local_id = await sauvegarderFicheLocale(donnees);
-      console.log('[Offline] Fiche sauvegardée localement:', local_id);
-
-      // Mettre à jour le badge
-      mettreAJourBadgeSync();
-
-      // Afficher message de confirmation
-      afficherMessageHorsLigne();
-
+      await saveFicheLocally(formData);
+      updateBannerCount();
+      showOfflineConfirmation();
     } catch (err) {
-      console.error('[Offline] Erreur sauvegarde locale:', err);
-      alert('Erreur lors de la sauvegarde hors-ligne. Veuillez réessayer.');
+      console.error('[Offline] Erreur sauvegarde :', err);
+      alert('Erreur lors de la sauvegarde locale. Réessayez.');
     }
   });
 }
 
-// ─────────────────────────────────────────
-// 8. BADGE compteur de fiches en attente
-// ─────────────────────────────────────────
-
-async function mettreAJourBadgeSync() {
-  const fiches = await getFichesEnAttente();
-  const count = fiches.length;
-
-  // Supprimer l'ancien badge
-  const ancienBadge = document.getElementById('badge-sync');
-  if (ancienBadge) ancienBadge.remove();
-
-  if (count === 0) return;
-
-  // Créer le badge dans la navbar
-  const navbar = document.querySelector('.navbar-modern');
-  if (!navbar) return;
-
-  const badge = document.createElement('div');
-  badge.id = 'badge-sync';
-  badge.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: #ffc107;
-    color: #1e2a3e;
-    border-radius: 40px;
-    padding: 0.5rem 1rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-  `;
-  badge.innerHTML = `
-    <i class="bi bi-cloud-upload"></i>
-    ${count} fiche${count > 1 ? 's' : ''} en attente de sync
-  `;
-  badge.onclick = () => synchroniserFiches();
-  document.body.appendChild(badge);
-}
-
-// ─────────────────────────────────────────
-// 9. MESSAGES utilisateur
-// ─────────────────────────────────────────
-
-function afficherMessageHorsLigne() {
-  // Supprimer ancien message
-  const ancien = document.getElementById('msg-hors-ligne');
-  if (ancien) ancien.remove();
-
-  const msg = document.createElement('div');
-  msg.id = 'msg-hors-ligne';
-  msg.style.cssText = `
-    position: fixed;
-    top: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #fff3cd;
-    border: 1px solid #ffc107;
-    border-radius: 20px;
-    padding: 1rem 1.5rem;
-    z-index: 9999;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    max-width: 90vw;
-    text-align: center;
-    font-weight: 500;
-  `;
-  msg.innerHTML = `
-    <i class="bi bi-wifi-off me-2 text-warning"></i>
-    <strong>Fiche sauvegardée localement</strong><br>
-    <small>Elle sera synchronisée automatiquement au retour de connexion.</small>
-    <br><br>
-    <a href="/fiches/" class="btn btn-sm btn-outline-dark" style="border-radius:40px">
-      <i class="bi bi-arrow-left me-1"></i>Retour aux fiches
-    </a>
-  `;
-  document.body.appendChild(msg);
-
-  // Disparaît après 8 secondes
-  setTimeout(() => msg.remove(), 8000);
-}
-
-function afficherNotificationSync(count) {
-  const notif = document.createElement('div');
-  notif.style.cssText = `
-    position: fixed;
-    top: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #d1e7dd;
-    border: 1px solid #006633;
-    border-radius: 20px;
-    padding: 0.8rem 1.5rem;
-    z-index: 9999;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-weight: 500;
-    text-align: center;
-  `;
-  notif.innerHTML = `
-    <i class="bi bi-check-circle-fill me-2 text-success"></i>
-    <strong>${count} fiche${count > 1 ? 's' : ''} synchronisée${count > 1 ? 's' : ''} avec succès !</strong>
-  `;
-  document.body.appendChild(notif);
-  setTimeout(() => notif.remove(), 5000);
-}
-
-// ─────────────────────────────────────────
-// 10. UTILITAIRE — lire un cookie
-// ─────────────────────────────────────────
-
-function getCookie(name) {
-  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-  return match ? match[2] : '';
-}
-
-// ─────────────────────────────────────────
-// 11. INITIALISATION au chargement
-// ─────────────────────────────────────────
-
+// Initialisation
 document.addEventListener('DOMContentLoaded', async () => {
-  // Intercepter le formulaire
-  intercepterFormulaire();
+  updateBannerCount();
+  interceptFicheForm();
 
-  // Mettre à jour le badge au chargement
-  await mettreAJourBadgeSync();
-
-  // Sync automatique au retour en ligne
-  window.addEventListener('online', async () => {
-    console.log('[Offline] Connexion rétablie — synchronisation...');
-    await synchroniserFiches();
-    await mettreAJourBadgeSync();
+  window.addEventListener('online', () => {
+    console.log('[Sync] Connexion rétablie...');
+    syncFiches();
   });
+
+  if (navigator.onLine) {
+    const count = await countPendingFiches();
+    if (count > 0) setTimeout(syncFiches, 2000);
+  }
 });

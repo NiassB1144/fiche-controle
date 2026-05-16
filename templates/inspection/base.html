@@ -7,14 +7,14 @@
   <meta name="theme-color" content="#006633">
   <meta name="description" content="Plateforme de contrôle de l'Inspection du Travail et de la Sécurité sociale de Louga">
 
-  <!-- PWA iOS — Safari ne lit pas le manifest, ces metas sont obligatoires -->
+  <!-- PWA iOS -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FicheControle">
 
   <title>{% block title %}Fiche de Contrôle{% endblock %} — IRTSS Louga</title>
 
-  <!-- Manifest PWA — servi via urls.py (route /manifest.json) -->
+  <!-- Manifest PWA -->
   <link rel="manifest" href="/manifest.json">
 
   <!-- Favicons -->
@@ -30,15 +30,11 @@
   <!-- Bootstrap Icons LOCAL -->
   <link rel="stylesheet" href="{% static 'icons/bootstrap-icons.css' %}">
 
-  <!-- Ton CSS -->
+  <!-- CSS principal -->
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
 
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -49,21 +45,12 @@
 
     .navbar-modern {
       background: linear-gradient(135deg, #006633 0%, #008844 100%);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
       padding: 0.65rem 1rem;
     }
-
-    .navbar-brand {
-      transition: transform 0.2s ease;
-    }
-
-    .navbar-brand:hover {
-      transform: scale(1.02);
-    }
-
-    .navbar-brand img {
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
-    }
+    .navbar-brand { transition: transform 0.2s ease; }
+    .navbar-brand:hover { transform: scale(1.02); }
+    .navbar-brand img { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
 
     .nav-link-custom {
       color: rgba(255,255,255,0.9);
@@ -76,13 +63,8 @@
       gap: 6px;
       text-decoration: none;
     }
-
-    .nav-link-custom i {
-      font-size: 1.1rem;
-    }
-
-    .nav-link-custom:hover,
-    .nav-link-custom.active {
+    .nav-link-custom i { font-size: 1.1rem; }
+    .nav-link-custom:hover, .nav-link-custom.active {
       background: rgba(255,255,255,0.2);
       color: white;
       transform: translateY(-1px);
@@ -102,7 +84,6 @@
       border: none;
       text-decoration: none;
     }
-
     .btn-nouvelle-fiche:hover {
       background: #f0f9f4;
       transform: translateY(-2px);
@@ -131,10 +112,7 @@
       font-weight: 500;
       transition: all 0.2s;
     }
-
-    .dropdown-user .dropdown-toggle:hover {
-      background: rgba(255,255,255,0.3);
-    }
+    .dropdown-user .dropdown-toggle:hover { background: rgba(255,255,255,0.3); }
 
     .dropdown-menu-modern {
       border-radius: 20px;
@@ -143,48 +121,48 @@
       padding: 0.5rem 0;
       margin-top: 0.5rem;
     }
+    .dropdown-item i { width: 1.4rem; margin-right: 8px; }
 
-    .dropdown-item i {
-      width: 1.4rem;
-      margin-right: 8px;
+    /* Banniere sync hors-ligne */
+    .sync-banner {
+      display: none;
+      background: #fff3cd;
+      color: #856404;
+      border-bottom: 2px solid #ffc107;
+      padding: 0.6rem 1rem;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      flex-wrap: wrap;
+      text-align: center;
     }
+    .sync-banner .btn-sync {
+      color: #006633;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid #006633;
+      border-radius: 40px;
+      padding: 0.2rem 0.9rem;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+    .sync-banner .btn-sync:hover { background: #006633; color: white; }
 
     .alert-modern {
       border: none;
       border-radius: 20px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      backdrop-filter: blur(2px);
       font-weight: 500;
       padding: 0.9rem 1.2rem;
     }
+    .alert-success { background: #e0f2e9; color: #004d26; border-left: 5px solid #006633; }
+    .alert-danger  { background: #ffe6e5; color: #a1220a; border-left: 5px solid #dc3545; }
+    .alert-warning { background: #fff3e0; color: #aa6f00; border-left: 5px solid #ffc107; }
+    .alert-info    { background: #e1f0fa; color: #0a5b8c; border-left: 5px solid #17a2b8; }
 
-    .alert-success {
-      background: #e0f2e9;
-      color: #004d26;
-      border-left: 5px solid #006633;
-    }
-
-    .alert-danger {
-      background: #ffe6e5;
-      color: #a1220a;
-      border-left: 5px solid #dc3545;
-    }
-
-    .alert-warning {
-      background: #fff3e0;
-      color: #aa6f00;
-      border-left: 5px solid #ffc107;
-    }
-
-    .alert-info {
-      background: #e1f0fa;
-      color: #0a5b8c;
-      border-left: 5px solid #17a2b8;
-    }
-
-    main {
-      min-height: 70vh;
-    }
+    main { min-height: 70vh; }
 
     .footer {
       background: #ffffffcc;
@@ -194,30 +172,13 @@
       color: #4a627a;
     }
 
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #e9ecef;
-      border-radius: 10px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #006633;
-      border-radius: 10px;
-    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #e9ecef; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #006633; border-radius: 10px; }
 
     @media (max-width: 768px) {
-      .navbar-modern .container-fluid {
-        flex-wrap: wrap;
-      }
-
-      .btn-nouvelle-fiche {
-        padding: 0.35rem 1rem;
-        font-size: 0.85rem;
-      }
+      .navbar-modern .container-fluid { flex-wrap: wrap; }
+      .btn-nouvelle-fiche { padding: 0.35rem 1rem; font-size: 0.85rem; }
     }
   </style>
 
@@ -243,9 +204,7 @@
     </button>
 
     <div class="collapse navbar-collapse" id="mainNavbar">
-
       <ul class="navbar-nav me-auto mb-2 mb-lg-0 align-items-center gap-1">
-
         <li class="nav-item">
           <a class="nav-link-custom {% if request.resolver_match.url_name == 'tableau_de_bord' %}active{% endif %}"
              href="{% url 'tableau_de_bord' %}">
@@ -253,7 +212,6 @@
             <span>Accueil</span>
           </a>
         </li>
-
         <li class="nav-item">
           <a class="nav-link-custom {% if 'fiche' in request.resolver_match.url_name %}active{% endif %}"
              href="{% url 'liste_fiches' %}">
@@ -261,12 +219,10 @@
             <span>Mes fiches</span>
           </a>
         </li>
-
       </ul>
 
       <div class="d-flex align-items-center gap-3 ms-auto">
 
-        <!-- Statut connexion en ligne / hors ligne -->
         <div id="statut-connexion" class="badge-statut">
           <i class="bi bi-wifi"></i>
           <span>En ligne</span>
@@ -280,9 +236,7 @@
         <div class="dropdown dropdown-user">
           <button class="btn dropdown-toggle d-flex align-items-center gap-2"
                   data-bs-toggle="dropdown">
-
             <i class="bi bi-person-circle fs-6"></i>
-
             <span class="d-none d-md-inline">
               {% if user.first_name %}
                 {{ user.first_name }} {{ user.last_name }}
@@ -290,39 +244,29 @@
                 {{ user.username }}
               {% endif %}
             </span>
-
           </button>
 
           <ul class="dropdown-menu dropdown-menu-end dropdown-menu-modern">
-
             <li>
               <span class="dropdown-header text-muted small">
                 <i class="bi bi-envelope-at"></i>
                 {{ user.email|default:"aucun email" }}
               </span>
             </li>
-
             <li><hr class="dropdown-divider"></li>
-
             {% if user.is_staff %}
             <li>
               <a class="dropdown-item" href="{% url 'administration' %}">
-                <i class="bi bi-people"></i>
-                Administration
+                <i class="bi bi-people"></i>Administration
               </a>
             </li>
-
             <li><hr class="dropdown-divider"></li>
             {% endif %}
-
             <li>
-              <a class="dropdown-item text-danger fw-semibold"
-                 href="{% url 'deconnexion' %}">
-                <i class="bi bi-box-arrow-right"></i>
-                Déconnexion
+              <a class="dropdown-item text-danger fw-semibold" href="{% url 'deconnexion' %}">
+                <i class="bi bi-box-arrow-right"></i>Deconnexion
               </a>
             </li>
-
           </ul>
         </div>
 
@@ -330,67 +274,66 @@
     </div>
   </div>
 </nav>
+
+<!-- Banniere fiches en attente de sync -->
+<div id="sync-banner" class="sync-banner">
+  <i class="bi bi-cloud-upload fs-5"></i>
+  <span>
+    <strong><span id="sync-count">0</span> fiche(s)</strong> sauvegardee(s) hors-ligne en attente de synchronisation.
+  </span>
+  <a href="#" class="btn-sync" onclick="syncFiches(); return false;">
+    <i class="bi bi-arrow-repeat me-1"></i>Synchroniser maintenant
+  </a>
+</div>
 {% endif %}
 
-<!-- Messages -->
+<!-- Messages Django -->
 {% if messages %}
 <div class="container-fluid px-3 px-lg-4 pt-3">
   {% for message in messages %}
-  <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show alert-modern"
-       role="alert">
-
+  <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show alert-modern" role="alert">
     {{ message }}
-
-    <button type="button"
-            class="btn-close"
-            data-bs-dismiss="alert"></button>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
   </div>
   {% endfor %}
 </div>
 {% endif %}
 
-<!-- Contenu -->
 <main class="py-4">
   <div class="container-fluid px-3 px-lg-4">
     {% block content %}{% endblock %}
   </div>
 </main>
 
-<!-- Footer -->
 <footer class="footer text-center py-4 mt-5">
   <div class="container">
-
     <i class="bi bi-briefcase-fill me-1 text-muted"></i>
-
-    Ministère de la Fonction Publique, du Travail et de la Réforme du Service Public
-
+    Ministere de la Fonction Publique, du Travail et de la Reforme du Service Public
     <br>
-
     <span class="small opacity-75">
-      Inspection régionale du Travail et de la Sécurité sociale de Louga —
+      Inspection regionale du Travail et de la Securite sociale de Louga —
       <i class="bi bi-c-circle"></i>
       <span id="current-year"></span>
-      Tous droits réservés
+      Tous droits reserves
     </span>
-
   </div>
 </footer>
 
 <!-- Bootstrap JS LOCAL -->
 <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
 
-<!-- Ton JS -->
+<!-- App JS -->
 <script src="{% static 'js/app.js' %}"></script>
 
+<!-- Offline JS — IndexedDB + sync automatique -->
+<script src="{% static 'js/offline.js' %}"></script>
+
 <script>
-  // Année automatique
   document.getElementById('current-year').innerText = new Date().getFullYear();
 
-  // Statut connexion
   function updateConnectionStatus() {
     const statusBadge = document.getElementById('statut-connexion');
     if (!statusBadge) return;
-
     if (navigator.onLine) {
       statusBadge.innerHTML = '<i class="bi bi-wifi"></i> <span>En ligne</span>';
       statusBadge.style.background = 'rgba(255,255,255,0.2)';
@@ -404,26 +347,14 @@
   window.addEventListener('online', updateConnectionStatus);
   window.addEventListener('offline', updateConnectionStatus);
 
-  // Service Worker — enregistré depuis la racine /sw.js
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('/sw.js', { scope: '/' })
         .then(function (reg) {
-          console.log('[SW] ✅ Enregistré — scope :', reg.scope);
-
-          // Forcer la mise à jour si un nouveau SW est en attente
-          reg.addEventListener('updatefound', function () {
-            const newWorker = reg.installing;
-            newWorker.addEventListener('statechange', function () {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('[SW] 🔄 Nouvelle version disponible — rechargement...');
-                // Optionnel : afficher une bannière "Mise à jour disponible"
-              }
-            });
-          });
+          console.log('[SW] Enregistre — scope :', reg.scope);
         })
         .catch(function (error) {
-          console.error('[SW] ❌ Erreur d\'enregistrement :', error);
+          console.error('[SW] Erreur :', error);
         });
     });
   }
