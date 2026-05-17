@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
@@ -6,17 +7,10 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-from django.db.models import Count
 from django.utils import timezone
 from .models import FicheControle
-from .forms import (
-    Section1Form, Section2Form, Section3Form,
-    Section4Form, Section5Form, Section6Form,
-    CreerUtilisateurForm
-)
+from .forms import CreerUtilisateurForm
 
-SECTION_FORMS = [Section1Form, Section2Form, Section3Form, Section4Form, Section5Form, Section6Form]
 SECTION_TITRES = [
     "Identification de l'entreprise",
     "Dispositions administratives & Effectifs",
@@ -26,9 +20,68 @@ SECTION_TITRES = [
     "Conclusions & Signatures",
 ]
 
+# Champs booléens du modèle
+BOOL_FIELDS = [
+    'remuneration_au_temps_1', 'remuneration_au_temps_2',
+    'remuneration_a_la_piece_1', 'remuneration_a_la_piece_2',
+    'remuneration_les_deux_1', 'remuneration_les_deux_2',
+    'suite_observations_orales', 'suite_observations_ecrites',
+    'suite_mise_en_demeure', 'suite_pv_infraction', 'suite_refere',
+    'delai_reception', 'delai_un_mois', 'delai_autres',
+]
 
-def is_admin(user):
-    return user.is_authenticated and (user.is_staff or user.groups.filter(name='admin').exists() or hasattr(user, 'profile') and False or user.last_name == '__admin__')
+# Champs entiers du modèle
+INT_FIELDS = [
+    'cadres_hommes', 'cadres_femmes', 'ouvriers_hommes', 'ouvriers_femmes',
+    'cdi', 'cdd', 'cs', 'c_app', 'autres_contrats',
+]
+
+# Champs date du modèle
+DATE_FIELDS = ['date_controle', 'date_ouverture']
+
+
+def _construire_fiche(data, inspecteur, fiche=None):
+    """Construit ou met à jour une FicheControle depuis un dict de données."""
+    if fiche is None:
+        fiche = FicheControle()
+        fiche.inspecteur = inspecteur
+
+    for field in FicheControle._meta.get_fields():
+        fname = field.name
+        if fname in ('id', 'inspecteur', 'created_at', 'updated_at', 'local_id'):
+            continue
+        if fname not in data:
+            continue
+
+        val = data[fname]
+
+        if fname in BOOL_FIELDS:
+            setattr(fiche, fname, val in (True, 'on', 'true', '1'))
+        elif fname in INT_FIELDS:
+            try:
+                setattr(fiche, fname, int(val) if val not in ('', None) else 0)
+            except (ValueError, TypeError):
+                setattr(fiche, fname, 0)
+        elif fname in DATE_FIELDS:
+            if val and val != '':
+                try:
+                    from datetime import datetime
+                    setattr(fiche, fname, datetime.strptime(str(val), '%Y-%m-%d').date())
+                except (ValueError, TypeError):
+                    if fname == 'date_controle':
+                        setattr(fiche, fname, date.today())
+            else:
+                if fname == 'date_controle':
+                    setattr(fiche, fname, date.today())
+                else:
+                    setattr(fiche, fname, None)
+        else:
+            setattr(fiche, fname, val or '')
+
+    if not fiche.entreprise:
+        fiche.entreprise = 'Sans nom'
+
+    return fiche
 
 
 def connexion(request):
@@ -59,96 +112,33 @@ def deconnexion(request):
 @login_required
 def tableau_de_bord(request):
     user = request.user
-    if user.is_staff:
-        fiches = FicheControle.objects.all()
-    else:
-        fiches = FicheControle.objects.filter(inspecteur=user)
-
-    total = fiches.count()
-    brouillons = fiches.filter(statut='brouillon').count()
-    soumises = fiches.filter(statut='soumis').count()
+    fiches = FicheControle.objects.all() if user.is_staff else FicheControle.objects.filter(inspecteur=user)
+    total       = fiches.count()
+    brouillons  = fiches.filter(statut='brouillon').count()
+    soumises    = fiches.filter(statut='soumis').count()
     cette_annee = fiches.filter(created_at__year=timezone.now().year).count()
-    recentes = fiches[:10]
-
-    context = {
-        'total': total,
-        'brouillons': brouillons,
-        'soumises': soumises,
-        'cette_annee': cette_annee,
-        'recentes': recentes,
-    }
-    return render(request, 'inspection/tableau_de_bord.html', context)
+    recentes    = fiches[:10]
+    return render(request, 'inspection/tableau_de_bord.html', {
+        'total': total, 'brouillons': brouillons,
+        'soumises': soumises, 'cette_annee': cette_annee, 'recentes': recentes,
+    })
 
 
 @login_required
 def liste_fiches(request):
     user = request.user
-    if user.is_staff:
-        fiches = FicheControle.objects.all().select_related('inspecteur')
-    else:
-        fiches = FicheControle.objects.filter(inspecteur=user)
-
+    fiches = FicheControle.objects.all().select_related('inspecteur') if user.is_staff \
+             else FicheControle.objects.filter(inspecteur=user)
     statut = request.GET.get('statut', '')
     if statut:
         fiches = fiches.filter(statut=statut)
-
     return render(request, 'inspection/liste_fiches.html', {'fiches': fiches, 'statut_filtre': statut})
 
 
 @login_required
 def nouvelle_fiche(request):
-    etape = int(request.GET.get('etape', 1))
-    etape = max(1, min(etape, 6))
-
-    fiche_id = request.session.get('fiche_en_cours')
-    fiche = None
-    if fiche_id:
-        try:
-            fiche = FicheControle.objects.get(pk=fiche_id, inspecteur=request.user)
-        except FicheControle.DoesNotExist:
-            fiche = None
-            request.session.pop('fiche_en_cours', None)
-
-    FormClass = SECTION_FORMS[etape - 1]
-
-    if request.method == 'POST':
-        form = FormClass(request.POST, instance=fiche)
-        if form.is_valid():
-            if fiche is None:
-                fiche = form.save(commit=False)
-                fiche.inspecteur = request.user
-                if not fiche.entreprise:
-                    fiche.entreprise = "Sans nom"
-                if not fiche.date_controle:
-                    from datetime import date
-                    fiche.date_controle = date.today()
-                fiche.save()
-                request.session['fiche_en_cours'] = fiche.pk
-            else:
-                form.save()
-
-            action = request.POST.get('action', 'suivant')
-            if action == 'precedent' and etape > 1:
-                return redirect(f'/fiches/nouvelle/?etape={etape - 1}')
-            elif action == 'suivant' and etape < 6:
-                return redirect(f'/fiches/nouvelle/?etape={etape + 1}')
-            elif action in ('soumettre', 'enregistrer') or etape == 6:
-                request.session.pop('fiche_en_cours', None)
-                messages.success(request, f'Fiche "{fiche.entreprise}" enregistrée avec succès.')
-                return redirect('detail_fiche', pk=fiche.pk)
-        else:
-            pass
-    else:
-        form = FormClass(instance=fiche)
-
-    return render(request, 'inspection/fiche_form.html', {
-        'form': form,
-        'etape': etape,
-        'total_etapes': 6,
-        'titre_section': SECTION_TITRES[etape - 1],
-        'fiche': fiche,
-        'mode': 'creation',
-    })
+    """Vue simplifiée — le formulaire est géré en JS single-page."""
+    return render(request, 'inspection/fiche_form.html', {'mode': 'creation'})
 
 
 @login_required
@@ -158,32 +148,26 @@ def modifier_fiche(request, pk):
     else:
         fiche = get_object_or_404(FicheControle, pk=pk, inspecteur=request.user)
 
-    etape = int(request.GET.get('etape', 1))
-    etape = max(1, min(etape, 6))
-    FormClass = SECTION_FORMS[etape - 1]
-
-    if request.method == 'POST':
-        form = FormClass(request.POST, instance=fiche)
-        if form.is_valid():
-            form.save()
-            action = request.POST.get('action', 'suivant')
-            if action == 'precedent' and etape > 1:
-                return redirect(f'/fiches/{pk}/modifier/?etape={etape - 1}')
-            elif action == 'suivant' and etape < 6:
-                return redirect(f'/fiches/{pk}/modifier/?etape={etape + 1}')
-            else:
-                messages.success(request, 'Fiche mise à jour.')
-                return redirect('detail_fiche', pk=pk)
-    else:
-        form = FormClass(instance=fiche)
+    # Sérialiser la fiche pour pré-remplir le formulaire JS
+    fiche_data = {}
+    for field in FicheControle._meta.get_fields():
+        fname = field.name
+        if fname in ('id', 'inspecteur', 'created_at', 'updated_at'):
+            continue
+        val = getattr(fiche, fname, None)
+        if val is None:
+            fiche_data[fname] = ''
+        elif hasattr(val, 'strftime'):
+            fiche_data[fname] = val.strftime('%Y-%m-%d')
+        elif isinstance(val, bool):
+            fiche_data[fname] = 'on' if val else ''
+        else:
+            fiche_data[fname] = str(val)
 
     return render(request, 'inspection/fiche_form.html', {
-        'form': form,
-        'etape': etape,
-        'total_etapes': 6,
-        'titre_section': SECTION_TITRES[etape - 1],
-        'fiche': fiche,
         'mode': 'modification',
+        'fiche': fiche,
+        'fiche_json': json.dumps(fiche_data),
     })
 
 
@@ -233,11 +217,8 @@ def creer_utilisateur(request):
             else:
                 username = d['email'].split('@')[0] + str(User.objects.count())
                 user = User.objects.create_user(
-                    username=username,
-                    email=d['email'],
-                    password=d['mot_de_passe'],
-                    first_name=d['prenom'],
-                    last_name=d['nom'],
+                    username=username, email=d['email'], password=d['mot_de_passe'],
+                    first_name=d['prenom'], last_name=d['nom'],
                 )
                 if d['role'] == 'admin':
                     user.is_staff = True
@@ -261,7 +242,47 @@ def supprimer_utilisateur(request, pk):
     return redirect('administration')
 
 
-@csrf_exempt
+# ──────────────────────────────────────────────────────────────────────────────
+# API JSON — Créer une fiche (utilisée par le formulaire single-page)
+# ──────────────────────────────────────────────────────────────────────────────
+@login_required
+def api_fiche_creer(request):
+    """Reçoit toutes les données de la fiche en JSON et crée la fiche."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    try:
+        data = json.loads(request.body)
+        fiche = _construire_fiche(data, request.user)
+        fiche.save()
+        return JsonResponse({'success': True, 'id': fiche.pk, 'entreprise': fiche.entreprise})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# API JSON — Modifier une fiche existante
+# ──────────────────────────────────────────────────────────────────────────────
+@login_required
+def api_fiche_modifier(request, pk):
+    """Reçoit toutes les données de la fiche en JSON et met à jour la fiche."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    if request.user.is_staff:
+        fiche = get_object_or_404(FicheControle, pk=pk)
+    else:
+        fiche = get_object_or_404(FicheControle, pk=pk, inspecteur=request.user)
+    try:
+        data = json.loads(request.body)
+        fiche = _construire_fiche(data, request.user, fiche)
+        fiche.save()
+        return JsonResponse({'success': True, 'id': fiche.pk})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# API JSON — Sync hors-ligne (fiches sauvegardées dans IndexedDB)
+# ──────────────────────────────────────────────────────────────────────────────
 @login_required
 def api_sync(request):
     if request.method != 'POST':
@@ -271,15 +292,9 @@ def api_sync(request):
         fiches_data = data.get('fiches', [])
         created = []
         for f in fiches_data:
-            from datetime import date
-            fiche = FicheControle.objects.create(
-                inspecteur=request.user,
-                entreprise=f.get('entreprise', 'Sans nom'),
-                date_controle=f.get('date_controle', str(date.today())),
-                lieu=f.get('lieu', 'Louga'),
-                statut=f.get('statut', 'brouillon'),
-                local_id=f.get('local_id', ''),
-            )
+            fiche = _construire_fiche(f, request.user)
+            fiche.local_id = f.get('local_id', '')
+            fiche.save()
             created.append({'id': fiche.pk, 'local_id': fiche.local_id})
         return JsonResponse({'synchronisees': len(created), 'fiches': created})
     except Exception as e:

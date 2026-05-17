@@ -1,19 +1,16 @@
 'use strict';
 
-// ─── Indicateur connexion ──────────────────────────────────────────────────
+// Indicateur connexion
 function mettreAJourStatut() {
   const el = document.getElementById('statut-connexion');
-  const alerte = document.getElementById('alerte-hors-ligne');
   if (!el) return;
   if (navigator.onLine) {
-    el.innerHTML = '<i class="bi bi-wifi"></i> En ligne';
-    el.className = 'badge bg-success';
-    if (alerte) alerte.classList.add('d-none');
+    el.innerHTML = '<i class="bi bi-wifi"></i> <span>En ligne</span>';
+    el.style.background = 'rgba(255,255,255,0.2)';
     syncLocale();
   } else {
-    el.innerHTML = '<i class="bi bi-wifi-off"></i> Hors ligne';
-    el.className = 'badge bg-danger';
-    if (alerte) alerte.classList.remove('d-none');
+    el.innerHTML = '<i class="bi bi-wifi-off"></i> <span>Hors ligne</span>';
+    el.style.background = 'rgba(220,53,69,0.8)';
   }
 }
 
@@ -21,10 +18,10 @@ window.addEventListener('online', mettreAJourStatut);
 window.addEventListener('offline', mettreAJourStatut);
 document.addEventListener('DOMContentLoaded', mettreAJourStatut);
 
-// ─── IndexedDB pour stockage hors-ligne ────────────────────────────────────
-const DB_NAME = 'ficheControleDB';
+// IndexedDB
+const DB_NAME    = 'ficheControleDB';
 const DB_VERSION = 1;
-const STORE = 'fiches_locales';
+const STORE      = 'fiches_locales';
 
 function ouvrirDB() {
   return new Promise((resolve, reject) => {
@@ -48,6 +45,7 @@ async function sauvegarderLocalement(donnees) {
     const store = tx.objectStore(STORE);
     const local_id = donnees.local_id || 'fiche_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     store.put({ ...donnees, local_id, synced: false, saved_at: new Date().toISOString() });
+    await majBanniereSync();
     return local_id;
   } catch (e) {
     console.warn('IndexedDB non disponible:', e);
@@ -80,31 +78,51 @@ async function marquerSynced(local_id) {
   } catch {}
 }
 
-// ─── Synchronisation automatique ──────────────────────────────────────────
+// Banniere sync
+async function majBanniereSync() {
+  const fiches = await getFichesNonSynced();
+  const banner = document.getElementById('sync-banner');
+  const badge  = document.getElementById('sync-count');
+  if (!banner) return;
+  if (fiches.length > 0) {
+    banner.style.display = 'flex';
+    if (badge) badge.textContent = fiches.length;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+// Synchronisation automatique
 async function syncLocale() {
   const fiches = await getFichesNonSynced();
   if (!fiches.length) return;
+
   try {
     const csrfToken = document.cookie.split('; ')
       .find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+
     const resp = await fetch('/api/sync/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
       body: JSON.stringify({ fiches }),
     });
+
     if (resp.ok) {
       const data = await resp.json();
       for (const f of (data.fiches || [])) {
         if (f.local_id) await marquerSynced(f.local_id);
       }
+      await majBanniereSync();
       if (data.synchronisees > 0) {
         afficherNotification(`${data.synchronisees} fiche(s) synchronisée(s) avec le serveur.`, 'success');
       }
     }
-  } catch {}
+  } catch (e) {
+    console.warn('Sync échouée:', e);
+  }
 }
 
-// ─── Notification toast ───────────────────────────────────────────────────
+// Notification toast
 function afficherNotification(message, type = 'info') {
   const container = document.getElementById('toast-container') || creerToastContainer();
   const id = 'toast_' + Date.now();
@@ -133,7 +151,7 @@ function creerToastContainer() {
   return div;
 }
 
-// ─── PWA Install prompt ───────────────────────────────────────────────────
+// PWA install prompt
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -143,6 +161,16 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Mettre à jour la banniere sync
+  majBanniereSync();
+
+  // Sync au retour en ligne
+  window.addEventListener('online', () => {
+    console.log('[Sync] Connexion rétablie...');
+    syncLocale();
+  });
+
+  // Bouton installer PWA
   const btn = document.getElementById('btn-installer-pwa');
   if (btn) {
     btn.addEventListener('click', async () => {
@@ -154,6 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (banner) banner.style.display = 'none';
     });
   }
+
   const btnFermer = document.getElementById('btn-fermer-pwa');
   if (btnFermer) {
     btnFermer.addEventListener('click', () => {
@@ -163,11 +192,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ─── Enregistrement Service Worker ────────────────────────────────────────
+// Service Worker — enregistrement unique ici
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then(reg => console.log('SW enregistré:', reg.scope))
-      .catch(err => console.warn('SW erreur:', err));
+      .then(reg => console.log('[SW] Enregistré:', reg.scope))
+      .catch(err => console.warn('[SW] Erreur:', err));
   });
 }

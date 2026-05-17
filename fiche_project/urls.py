@@ -5,6 +5,7 @@ from django.conf import settings
 from django.views.generic.base import RedirectView
 from inspection import views
 import os
+import json
 
 
 def serve_sw(request):
@@ -18,17 +19,15 @@ def serve_sw(request):
             with open(path_candidate, 'r', encoding='utf-8') as f:
                 content = f.read()
             break
-
     if content is None:
         return HttpResponse('/* sw.js introuvable */', content_type='application/javascript', status=404)
-
     response = HttpResponse(content, content_type='application/javascript')
     response['Service-Worker-Allowed'] = '/'
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
 
 
-def serve_manifest(request):  # ← NOUVEAU
+def serve_manifest(request):
     candidates = [
         os.path.join(settings.BASE_DIR, 'static', 'manifest.json'),
         os.path.join(settings.BASE_DIR, 'staticfiles', 'manifest.json'),
@@ -39,10 +38,8 @@ def serve_manifest(request):  # ← NOUVEAU
             with open(path_candidate, 'r', encoding='utf-8') as f:
                 content = f.read()
             break
-
     if content is None:
         return HttpResponse('{}', content_type='application/json', status=404)
-
     response = HttpResponse(content, content_type='application/manifest+json')
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
@@ -51,7 +48,7 @@ def serve_manifest(request):  # ← NOUVEAU
 urlpatterns = [
     # PWA — toujours en premier
     path('sw.js', serve_sw, name='sw'),
-    path('manifest.json', serve_manifest, name='manifest'),  # ← NOUVEAU
+    path('manifest.json', serve_manifest, name='manifest'),
 
     # Favicon
     path('favicon.ico', RedirectView.as_view(url='/static/icons/icon-192.png', permanent=True)),
@@ -78,6 +75,8 @@ urlpatterns = [
     path('administration/creer-utilisateur/', views.creer_utilisateur, name='creer_utilisateur'),
     path('administration/supprimer-utilisateur/<int:pk>/', views.supprimer_utilisateur, name='supprimer_utilisateur'),
 
-    # API
+    # API JSON — formulaire single-page + sync hors-ligne
+    path('api/fiche/creer/', views.api_fiche_creer, name='api_fiche_creer'),
+    path('api/fiche/<int:pk>/modifier/', views.api_fiche_modifier, name='api_fiche_modifier'),
     path('api/sync/', views.api_sync, name='api_sync'),
 ]
