@@ -742,7 +742,7 @@ async function envoyerADjango(donnees) {
     .find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
 
   // Choisir l'URL selon si on modifie ou crée
-  const url = (typeof editingPk !== 'undefined' && editingPk) ? ('/api/fiche/modifier/' + editingPk + '/') : '/api/fiche/creer/';
+  const url = (typeof editingPk !== 'undefined' && editingPk) ? ('/api/fiche/' + editingPk + '/modifier/') : '/api/fiche/creer/';
 
   try {
     const resp = await fetch(url, {

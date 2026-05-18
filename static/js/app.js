@@ -19,18 +19,39 @@ window.addEventListener('offline', mettreAJourStatut);
 document.addEventListener('DOMContentLoaded', mettreAJourStatut);
 
 // IndexedDB
-const DB_NAME    = 'ficheControleDB';
-const DB_VERSION = 1;
-const STORE      = 'fiches_locales';
+const DB_NAME     = 'ficheControleDB';
+const DB_VERSION  = 2;
+const STORE       = 'fiches_locales';
+const OLD_STORE   = 'fiches_hors_ligne';
 
 function ouvrirDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => {
+    req.onupgradeneeded = async (e) => {
       const db = e.target.result;
+
+      // Créer le store actuel si nécessaire
       if (!db.objectStoreNames.contains(STORE)) {
         const store = db.createObjectStore(STORE, { keyPath: 'local_id' });
         store.createIndex('synced', 'synced', { unique: false });
+      }
+
+      // Migrer l'ancien store si des données existent
+      if (db.objectStoreNames.contains(OLD_STORE)) {
+        const oldStore = e.target.transaction.objectStore(OLD_STORE);
+        const newStore = e.target.transaction.objectStore(STORE);
+        const getAllReq = oldStore.getAll();
+        getAllReq.onsuccess = (event) => {
+          const oldFiches = event.target.result || [];
+          oldFiches.forEach(item => {
+            const fiche = {
+              ...item,
+              synced: item.synced === true,
+              saved_at: item.created_at_local || item.saved_at || new Date().toISOString(),
+            };
+            newStore.put(fiche);
+          });
+        };
       }
     };
     req.onsuccess = (e) => resolve(e.target.result);
