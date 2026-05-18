@@ -58,24 +58,105 @@ async function getFichesNonSynced() {
     return new Promise((resolve) => {
       const tx = db.transaction(STORE, 'readonly');
       const store = tx.objectStore(STORE);
-      const idx = store.index('synced');
-      const req = idx.getAll(false);
-      req.onsuccess = () => resolve(req.result || []);
+      const req = store.getAll();
+      req.onsuccess = () => resolve((req.result || []).filter(item => item.synced !== true));
       req.onerror = () => resolve([]);
     });
   } catch { return []; }
 }
 
-async function marquerSynced(local_id) {
+// Récupérer une fiche locale par local_id
+async function getFicheByLocalId(local_id) {
+  try {
+    const db = await ouvrirDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const store = tx.objectStore(STORE);
+      const req = store.get(local_id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch (e) { return null; }
+}
+
+// Supprimer une fiche locale par local_id
+async function deleteLocalFiche(local_id) {
+  try {
+    const db = await ouvrirDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      const store = tx.objectStore(STORE);
+      const req = store.delete(local_id);
+      req.onsuccess = () => { majBanniereSync(); resolve(); };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  } catch (e) { console.warn('deleteLocalFiche error', e); }
+}
+
+// Rendre la liste des fiches locales non synchronisées dans la page
+async function renderLocalFiches() {
+  const container = document.getElementById('local-fiches-list');
+  if (!container) return;
+  const fiches = await getFichesNonSynced();
+  container.innerHTML = '';
+  if (!fiches || !fiches.length) {
+    container.innerHTML = '<div class="small text-muted">Aucune fiche locale en attente.</div>';
+    return;
+  }
+  fiches.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'fiche-card p-3 mb-2';
+    const entreprise = f.entreprise || '(Sans nom)';
+    const datec = f.date_controle || '';
+    div.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="fw-bold">${entreprise}</div>
+          <div class="small text-muted">${datec}</div>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-primary btn-sm" data-local-edit="${f.local_id}"><i class="bi bi-pencil"></i> Modifier</button>
+          <button class="btn btn-outline-danger btn-sm" data-local-delete="${f.local_id}"><i class="bi bi-trash3"></i> Supprimer</button>
+        </div>
+      </div>`;
+    container.appendChild(div);
+  });
+
+  // Listeners
+  container.querySelectorAll('[data-local-edit]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = e.currentTarget.getAttribute('data-local-edit');
+      // Ouvrir le formulaire en mode création mais avec ?local_id=...
+      window.location.href = '/fiches/nouvelle/?local_id=' + encodeURIComponent(id);
+    });
+  });
+  container.querySelectorAll('[data-local-delete]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const id = e.currentTarget.getAttribute('data-local-delete');
+      if (!confirm('Supprimer cette fiche locale ?')) return;
+      await deleteLocalFiche(id);
+      renderLocalFiches();
+      afficherNotification('Fiche locale supprimée.', 'success');
+    });
+  });
+}
+
+async function marquerSynced(local_id, server_pk = null) {
   try {
     const db = await ouvrirDB();
     const tx = db.transaction(STORE, 'readwrite');
     const store = tx.objectStore(STORE);
     const req = store.get(local_id);
     req.onsuccess = () => {
-      if (req.result) store.put({ ...req.result, synced: true });
+      if (req.result) {
+        const updated = { ...req.result, synced: true };
+        if (server_pk) updated.server_pk = server_pk;
+        store.put(updated);
+      }
     };
-  } catch {}
+  } catch (e) {
+    console.warn('marquerSynced error', e);
+  }
 }
 
 // Banniere sync
@@ -110,7 +191,7 @@ async function syncLocale() {
     if (resp.ok) {
       const data = await resp.json();
       for (const f of (data.fiches || [])) {
-        if (f.local_id) await marquerSynced(f.local_id);
+        if (f.local_id) await marquerSynced(f.local_id, f.server_pk);
       }
       await majBanniereSync();
       if (data.synchronisees > 0) {
@@ -161,8 +242,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Mettre à jour la banniere sync
+  // Mettre à jour la banniere sync et lister fiches locales
   majBanniereSync();
+  renderLocalFiches();
 
   // Sync au retour en ligne
   window.addEventListener('online', () => {

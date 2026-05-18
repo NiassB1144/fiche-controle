@@ -98,6 +98,12 @@
   </div>
 
   <!-- Liste des fiches -->
+  <!-- Fiches locales non synchronisées (IndexedDB) -->
+  <div id="local-fiches-section" class="mb-4">
+    <h6 class="fw-semibold mb-2"><i class="bi bi-hdd-network me-1"></i>Fiches locales (hors-ligne)</h6>
+    <div id="local-fiches-list" class="mb-3"></div>
+  </div>
+
   {% if fiches %}
     {% for fiche in fiches %}
     <div class="fiche-card p-3">

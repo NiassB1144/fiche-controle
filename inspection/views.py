@@ -290,12 +290,40 @@ def api_sync(request):
     try:
         data = json.loads(request.body)
         fiches_data = data.get('fiches', [])
-        created = []
+        synchronisees = 0
+        result_fiches = []
+
         for f in fiches_data:
-            fiche = _construire_fiche(f, request.user)
-            fiche.local_id = f.get('local_id', '')
+            local_id = f.get('local_id', '')
+            server_pk = f.get('server_pk')
+            fiche = None
+
+            if server_pk:
+                try:
+                    fiche = FicheControle.objects.get(pk=server_pk)
+                    if not request.user.is_staff and fiche.inspecteur != request.user:
+                        fiche = None
+                except FicheControle.DoesNotExist:
+                    fiche = None
+
+            if fiche is None and local_id:
+                try:
+                    fiche = FicheControle.objects.get(local_id=local_id)
+                    if not request.user.is_staff and fiche.inspecteur != request.user:
+                        fiche = None
+                except FicheControle.DoesNotExist:
+                    fiche = None
+
+            if fiche is None:
+                fiche = _construire_fiche(f, request.user)
+            else:
+                fiche = _construire_fiche(f, request.user, fiche)
+
+            fiche.local_id = local_id or fiche.local_id or ''
             fiche.save()
-            created.append({'id': fiche.pk, 'local_id': fiche.local_id})
-        return JsonResponse({'synchronisees': len(created), 'fiches': created})
+            synchronisees += 1
+            result_fiches.append({'local_id': fiche.local_id, 'server_pk': fiche.pk})
+
+        return JsonResponse({'synchronisees': synchronisees, 'fiches': result_fiches})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)

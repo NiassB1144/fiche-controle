@@ -281,7 +281,7 @@
   <span>
     <strong><span id="sync-count">0</span> fiche(s)</strong> sauvegardee(s) hors-ligne en attente de synchronisation.
   </span>
-  <a href="#" class="btn-sync" onclick="syncFiches(); return false;">
+  <a href="#" class="btn-sync" onclick="syncLocale(); return false;">
     <i class="bi bi-arrow-repeat me-1"></i>Synchroniser maintenant
   </a>
 </div>
@@ -325,8 +325,7 @@
 <!-- App JS -->
 <script src="{% static 'js/app.js' %}"></script>
 
-<!-- Offline JS — IndexedDB + sync automatique -->
-<script src="{% static 'js/offline.js' %}"></script>
+<!-- Offline JS intégré dans `app.js` (évite duplication) -->
 
 <script>
   document.getElementById('current-year').innerText = new Date().getFullYear();

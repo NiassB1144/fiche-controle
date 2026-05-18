@@ -718,6 +718,13 @@ async function soumettreFormulaire(statut) {
 
   const donnees = collecterDonnees(statut);
 
+  if (typeof editingLocalId !== 'undefined' && editingLocalId) {
+    donnees.local_id = editingLocalId;
+  }
+  if (typeof editingPk !== 'undefined' && editingPk) {
+    donnees.server_pk = editingPk;
+  }
+
   if (navigator.onLine) {
     // EN LIGNE — envoyer à Django
     await envoyerADjango(donnees);
@@ -734,8 +741,11 @@ async function envoyerADjango(donnees) {
   const csrfToken = document.cookie.split('; ')
     .find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
 
+  // Choisir l'URL selon si on modifie ou crée
+  const url = (typeof editingPk !== 'undefined' && editingPk) ? ('/api/fiche/modifier/' + editingPk + '/') : '/api/fiche/creer/';
+
   try {
-    const resp = await fetch('/api/fiche/creer/', {
+    const resp = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -746,6 +756,9 @@ async function envoyerADjango(donnees) {
 
     if (resp.ok) {
       const data = await resp.json();
+      if (typeof editingLocalId !== 'undefined' && editingLocalId && typeof deleteLocalFiche === 'function') {
+        await deleteLocalFiche(editingLocalId);
+      }
       afficherNotification('Fiche enregistrée avec succès !', 'success');
       setTimeout(() => { window.location.href = '/fiches/' + data.id + '/'; }, 1500);
     } else {
@@ -759,5 +772,59 @@ async function envoyerADjango(donnees) {
     setTimeout(() => { window.location.href = '/fiches/'; }, 2500);
   }
 }
+
+// ----- Pré-remplissage en mode modification -----
+let editingPk = null;
+let editingLocalId = null;
+{% if mode == 'modification' %}
+const ficheDataFromServer = {{ fiche_json|safe }};
+editingPk = {{ fiche.pk }};
+{% endif %}
+
+function remplirFormulaire(data) {
+  try {
+    Object.keys(data).forEach(k => {
+      const selector = '[name="' + k + '"]';
+      const el = document.querySelector(selector);
+      if (!el) return;
+      if (el.type === 'checkbox') {
+        el.checked = (data[k] === 'on' || data[k] === true || data[k] === 'true');
+      } else if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        el.value = data[k] != null ? data[k] : '';
+      }
+    });
+    calculerTotaux();
+    majNoticeOffline();
+  } catch (e) {
+    console.warn('Erreur remplissage formulaire:', e);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof ficheDataFromServer !== 'undefined' && ficheDataFromServer) {
+    remplirFormulaire(ficheDataFromServer);
+  }
+  // Si on ouvre avec un local_id en paramètre, charger la fiche locale
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('local_id')) {
+      const lid = params.get('local_id');
+      if (lid && typeof getFicheByLocalId === 'function') {
+        getFicheByLocalId(lid).then(obj => {
+          if (obj) {
+            editingLocalId = obj.local_id;
+            if (obj.server_pk) {
+              editingPk = obj.server_pk;
+            }
+            remplirFormulaire(obj);
+            if (!document.title.includes('Modifier')) {
+              document.title = 'Modifier la fiche — IRTSS Louga';
+            }
+          }
+        });
+      }
+    }
+  } catch (e) { /* ignore */ }
+});
 </script>
 {% endblock %}
