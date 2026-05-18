@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fiche-controle-v2';
+const CACHE_NAME = 'fiche-controle-v3';
 
 // Ne precacher que les fichiers STATIQUES garantis d'exister
 // '/' et '/favicon.ico' sont mis en cache dynamiquement au premier accès
