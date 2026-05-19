@@ -168,28 +168,25 @@
 
 <!-- Script pour charger et afficher les fiches locales (IndexedDB) -->
 <script>
-  // Attendre que app.js soit chargé (renderLocalFiches disponible)
-  function attendreRenderLocalFiches(tentatives = 0) {
-    if (typeof renderLocalFiches === 'function') {
-      console.log('[Liste] Charger les fiches locales...');
-      renderLocalFiches().then(() => {
-        console.log('[Liste] Fiches locales chargées.');
-      }).catch(err => {
-        console.error('[Liste] Erreur lors du chargement:', err);
-      });
-    } else if (tentatives < 50) {
-      // Réessayer dans 100ms (max 5 secondes)
-      setTimeout(() => attendreRenderLocalFiches(tentatives + 1), 100);
+  // Attendre que app.js soit complètement chargé (window.FicheApp disponible)
+  function attendreEtAfficherFiches(tentatives = 0) {
+    if (window.FicheApp && typeof window.FicheApp.renderLocalFiches === 'function') {
+      console.log('[Liste] 🔄 Chargement des fiches locales...');
+      window.FicheApp.renderLocalFiches()
+        .then(() => console.log('[Liste] ✓ Fiches locales affichées'))
+        .catch(err => console.error('[Liste] ❌ Erreur:', err));
+    } else if (tentatives < 100) {
+      // Réessayer dans 50ms (max 5 secondes)
+      setTimeout(() => attendreEtAfficherFiches(tentatives + 1), 50);
     } else {
-      console.warn('[Liste] renderLocalFiches n\'a pas pu être chargée.');
+      console.warn('[Liste] ⚠️ FicheApp.renderLocalFiches non disponible après 5s');
     }
   }
   
   // Lancer au chargement du DOM
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attendreRenderLocalFiches);
-  } else {
-    attendreRenderLocalFiches();
-  }
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('[Liste] DOM chargé, attente de FicheApp...');
+    attendreEtAfficherFiches();
+  });
 </script>
 {% endblock %}

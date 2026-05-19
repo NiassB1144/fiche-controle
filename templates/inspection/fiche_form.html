@@ -732,7 +732,8 @@ async function soumettreFormulaire(statut) {
     // HORS-LIGNE — sauvegarder localement
     await sauvegarderLocalement(donnees);
     afficherNotification('Fiche sauvegardée localement. Elle sera synchronisée à la reconnexion.', 'warning');
-    setTimeout(() => { window.location.href = '/fiches/'; }, 2500);
+    // Rediriger APRÈS délai pour laisser le temps à app.js de se charger
+    setTimeout(() => { window.location.href = '/fiches/'; }, 3500);
   }
 }
 
