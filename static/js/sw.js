@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fiche-controle-v4';
+const CACHE_NAME = 'fiche-controle-v5';
 
 const ASSETS = [
   '/',
@@ -9,7 +9,6 @@ const ASSETS = [
   '/static/css/style.css',
   '/static/js/bootstrap.bundle.min.js',
   '/static/js/app.js',
-  '/static/js/offline.js',
   '/static/icons/bootstrap-icons.css',
   '/manifest.json',
   '/static/icons/icon-192.png',
