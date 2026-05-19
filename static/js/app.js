@@ -70,7 +70,7 @@ function creerToastContainer() {
 // SECTION 3: GESTION CONNEXION & STATUT
 // ========================================================================
 
-function mettreAJourStatut() {
+async function mettreAJourStatut() {
   const el = document.getElementById('statut-connexion');
   if (!el) return;
   
@@ -78,7 +78,7 @@ function mettreAJourStatut() {
     el.innerHTML = '<i class="bi bi-wifi"></i> <span>En ligne</span>';
     el.style.background = 'rgba(255,255,255,0.2)';
     logInfo('📡 Connexion rétablie - tentative de sync...');
-    syncLocale();
+    await syncLocale();
   } else {
     el.innerHTML = '<i class="bi bi-wifi-off"></i> <span>Hors ligne</span>';
     el.style.background = 'rgba(220,53,69,0.8)';
@@ -86,9 +86,9 @@ function mettreAJourStatut() {
   }
 }
 
-window.addEventListener('online', mettreAJourStatut);
-window.addEventListener('offline', mettreAJourStatut);
-document.addEventListener('DOMContentLoaded', mettreAJourStatut);
+window.addEventListener('online', () => mettreAJourStatut());
+window.addEventListener('offline', () => mettreAJourStatut());
+document.addEventListener('DOMContentLoaded', () => mettreAJourStatut());
 
 // ========================================================================
 // SECTION 4: INDEXEDDB - OPÉRATIONS DE BASE

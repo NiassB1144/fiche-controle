@@ -165,4 +165,17 @@
     </div>
   {% endif %}
 </div>
+
+<!-- Script pour charger et afficher les fiches locales (IndexedDB) -->
+<script>
+  document.addEventListener('DOMContentLoaded', async function() {
+    console.log('[Liste] Charger les fiches locales...');
+    if (typeof renderLocalFiches === 'function') {
+      await renderLocalFiches();
+      console.log('[Liste] Fiches locales chargées.');
+    } else {
+      console.warn('[Liste] renderLocalFiches non disponible!');
+    }
+  });
+</script>
 {% endblock %}
