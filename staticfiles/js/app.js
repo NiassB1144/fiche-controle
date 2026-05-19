@@ -60,9 +60,8 @@ async function getFichesNonSynced() {
     return new Promise((resolve) => {
       const tx = db.transaction(STORE, 'readonly');
       const store = tx.objectStore(STORE);
-      const idx = store.index('synced');
-      const req = idx.getAll(false);
-      req.onsuccess = () => resolve(req.result || []);
+      const req = store.getAll();
+      req.onsuccess = () => resolve((req.result || []).filter(item => item.synced !== true));
       req.onerror = () => resolve([]);
     });
   } catch { return []; }
