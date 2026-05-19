@@ -153,7 +153,7 @@
         <span><i class="bi bi-person-badge me-1"></i>{{ fiche.inspecteur.first_name }} {{ fiche.inspecteur.last_name }}</span>
       </div>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
       <span class="badge-statut {% if fiche.statut == 'soumis' %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
         {% if fiche.statut == 'soumis' %}
           <i class="bi bi-check-circle-fill me-1"></i>Soumis
@@ -164,9 +164,15 @@
       <a href="{% url 'modifier_fiche' fiche.pk %}" class="btn btn-outline-primary btn-sm rounded-pill">
         <i class="bi bi-pencil me-1"></i>Modifier
       </a>
+      <a href="{% url 'export_fiche_json' fiche.pk %}" class="btn btn-outline-info btn-sm rounded-pill" title="Télécharger en JSON">
+        <i class="bi bi-download me-1"></i>JSON
+      </a>
       <button id="btn-pdf" class="btn btn-outline-danger btn-sm rounded-pill">
         <i class="bi bi-file-pdf me-1"></i>PDF
       </button>
+      <a href="{% url 'supprimer_fiche' fiche.pk %}" class="btn btn-outline-danger btn-sm rounded-pill">
+        <i class="bi bi-trash3 me-1"></i>Supprimer
+      </a>
       <a href="{% url 'liste_fiches' %}" class="btn btn-outline-secondary btn-sm rounded-pill">
         <i class="bi bi-arrow-left me-1"></i>Retour
       </a>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fiche-controle-v5';
+const CACHE_NAME = 'fiche-controle-v4';
 
 const ASSETS = [
   '/',

@@ -79,4 +79,8 @@ urlpatterns = [
     path('api/fiche/creer/', views.api_fiche_creer, name='api_fiche_creer'),
     path('api/fiche/<int:pk>/modifier/', views.api_fiche_modifier, name='api_fiche_modifier'),
     path('api/sync/', views.api_sync, name='api_sync'),
+    
+    # API Export — téléchargement fiches
+    path('api/fiche/<int:pk>/export/json/', views.export_fiche_json, name='export_fiche_json'),
+    path('api/fiche/<int:pk>/export/pdf/', views.export_fiche_pdf, name='export_fiche_pdf'),
 ]
