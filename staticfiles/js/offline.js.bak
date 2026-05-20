@@ -1,5 +1,6 @@
 // ============================================================
 // offline.js — Gestion hors-ligne des fiches de contrôle
+// [DEPRECATED] - Consolidé dans app.js v2
 // ============================================================
 
 const DB_NAME = 'ficheControleDB';

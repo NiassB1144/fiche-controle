@@ -1,4 +1,8 @@
-const CACHE_NAME = 'fiche-controle-v5';
+// ========================================================================
+// SERVICE WORKER — fiche-controle-v6 (CORRIGÉ)
+// ========================================================================
+
+const CACHE_NAME = 'fiche-controle-v6';
 
 const ASSETS = [
   '/',
@@ -16,6 +20,7 @@ const ASSETS = [
   '/static/icons/logo.png',
 ];
 
+// ── Install : précacher les assets ──────────────────────────────────────
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -32,6 +37,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
+// ── Activate : supprimer les anciens caches ──────────────────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
@@ -44,6 +50,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// ── Fetch : stratégies par type de requête ───────────────────────────────
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith('http')) return;
@@ -51,9 +58,34 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/admin/')) return;
-  if (url.pathname.startsWith('/api/')) return;
 
-  // Pages HTML — Network First
+  // ── API GET : Network First + mise en cache pour hors ligne ─────────
+  // ✅ CORRIGÉ — on NE bloque plus /api/, on cache les réponses GET
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(event.request).then((cached) => {
+            if (cached) return cached;
+            // Pas de cache dispo → réponse JSON vide valide pour ne pas faire planter le JS
+            return new Response(JSON.stringify({ fiches: [], offline: true }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          })
+        )
+    );
+    return;
+  }
+
+  // ── Pages HTML : Network First ────────────────────────────────────────
   if (event.request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(event.request)
@@ -69,7 +101,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Fichiers statiques — Cache First
+  // ── Fichiers statiques : Cache First ──────────────────────────────────
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;

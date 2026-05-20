@@ -101,7 +101,6 @@
   .btn-senegal:hover { background: #008844; color: white; }
   .text-senegal { color: #006633; }
 
-  /* Banniere hors-ligne dans le formulaire */
   .offline-notice {
     display: none;
     background: #fff3cd;
@@ -620,7 +619,6 @@ const TITRES = [
 let etapeCourante = 1;
 const TOTAL_ETAPES = 6;
 
-// Navigation entre étapes
 function allerEtape(n) {
   document.getElementById('section-' + etapeCourante).classList.remove('active');
   document.getElementById('step-' + etapeCourante).classList.remove('active');
@@ -632,7 +630,6 @@ function allerEtape(n) {
   document.getElementById('titre-etape-courante').textContent = TITRES[etapeCourante - 1];
   document.getElementById('barre-progression').style.width = ((etapeCourante / TOTAL_ETAPES) * 100) + '%';
 
-  // Mettre à jour les indicateurs
   for (let i = 1; i <= TOTAL_ETAPES; i++) {
     const el = document.getElementById('step-' + i);
     el.classList.remove('active', 'done');
@@ -640,7 +637,6 @@ function allerEtape(n) {
     if (i === etapeCourante) el.classList.add('active');
   }
 
-  // Boutons navigation
   document.getElementById('btn-precedent').style.display = etapeCourante > 1 ? 'inline-flex' : 'none';
   document.getElementById('btn-suivant').style.display = etapeCourante < TOTAL_ETAPES ? 'inline-flex' : 'none';
   document.getElementById('btn-terminer').style.display = etapeCourante === TOTAL_ETAPES ? 'inline-flex' : 'none';
@@ -653,7 +649,6 @@ function changerEtape(direction) {
   if (nouvelle >= 1 && nouvelle <= TOTAL_ETAPES) allerEtape(nouvelle);
 }
 
-// Calculer les totaux
 function calculerTotaux() {
   const v = (n) => parseInt(document.querySelector('[name="' + n + '"]')?.value) || 0;
   const cH = v('cadres_hommes'), cF = v('cadres_femmes');
@@ -671,7 +666,6 @@ function calculerTotaux() {
 document.addEventListener('input', calculerTotaux);
 document.addEventListener('DOMContentLoaded', calculerTotaux);
 
-// Statut hors-ligne dans le formulaire
 function majNoticeOffline() {
   const notice = document.getElementById('offline-notice');
   if (!notice) return;
@@ -685,12 +679,10 @@ window.addEventListener('online', majNoticeOffline);
 window.addEventListener('offline', majNoticeOffline);
 document.addEventListener('DOMContentLoaded', majNoticeOffline);
 
-// Collecter toutes les données du formulaire
 function collecterDonnees(statut) {
   const form = document.getElementById('form-fiche');
   const data = { statut: statut };
 
-  // Champs texte, date, number, select
   form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
     if (el.type === 'checkbox') {
       data[el.name] = el.checked ? 'on' : '';
@@ -704,9 +696,8 @@ function collecterDonnees(statut) {
   return data;
 }
 
-// Soumettre le formulaire
+// ✅ CORRIGÉ — attend le commit IndexedDB avant de rediriger
 async function soumettreFormulaire(statut) {
-  // Validation champs obligatoires
   const entreprise = document.querySelector('[name="entreprise"]').value.trim();
   const date_controle = document.querySelector('[name="date_controle"]').value.trim();
 
@@ -726,24 +717,27 @@ async function soumettreFormulaire(statut) {
   }
 
   if (navigator.onLine) {
-    // EN LIGNE — envoyer à Django
     await envoyerADjango(donnees);
   } else {
-    // HORS-LIGNE — sauvegarder localement
-    await sauvegarderLocalement(donnees);
-    afficherNotification('Fiche sauvegardée localement. Elle sera synchronisée à la reconnexion.', 'warning');
-    // Rediriger APRÈS délai pour laisser le temps à app.js de se charger
-    setTimeout(() => { window.location.href = '/fiches/'; }, 3500);
+    // ✅ Attendre que IndexedDB ait FINI d'écrire avant de rediriger
+    const local_id = await sauvegarderLocalement(donnees);
+    if (local_id) {
+      afficherNotification('Fiche sauvegardée ! Redirection...', 'success');
+      // ✅ Délai court — juste pour laisser le toast s'afficher
+      setTimeout(() => { window.location.href = '/fiches/'; }, 800);
+    } else {
+      afficherNotification('Erreur lors de la sauvegarde locale.', 'danger');
+    }
   }
 }
 
-// Envoi à Django via fetch
 async function envoyerADjango(donnees) {
   const csrfToken = document.cookie.split('; ')
     .find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
 
-  // Choisir l'URL selon si on modifie ou crée
-  const url = (typeof editingPk !== 'undefined' && editingPk) ? ('/api/fiche/' + editingPk + '/modifier/') : '/api/fiche/creer/';
+  const url = (typeof editingPk !== 'undefined' && editingPk)
+    ? ('/api/fiche/' + editingPk + '/modifier/')
+    : '/api/fiche/creer/';
 
   try {
     const resp = await fetch(url, {
@@ -767,14 +761,18 @@ async function envoyerADjango(donnees) {
       afficherNotification('Erreur : ' + (err.error || 'Problème serveur'), 'danger');
     }
   } catch (e) {
-    // Si fetch échoue (pas de réseau), fallback hors-ligne
-    await sauvegarderLocalement(donnees);
-    afficherNotification('Connexion perdue. Fiche sauvegardée localement.', 'warning');
-    setTimeout(() => { window.location.href = '/fiches/'; }, 2500);
+    // Fallback hors ligne si fetch échoue
+    const local_id = await sauvegarderLocalement(donnees);
+    if (local_id) {
+      afficherNotification('Connexion perdue. Fiche sauvegardée localement.', 'warning');
+      setTimeout(() => { window.location.href = '/fiches/'; }, 800);
+    } else {
+      afficherNotification('Erreur lors de la sauvegarde locale.', 'danger');
+    }
   }
 }
 
-// ----- Pré-remplissage en mode modification -----
+// Pré-remplissage en mode modification
 let editingPk = null;
 let editingLocalId = null;
 {% if mode == 'modification' %}
@@ -805,7 +803,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof ficheDataFromServer !== 'undefined' && ficheDataFromServer) {
     remplirFormulaire(ficheDataFromServer);
   }
-  // Si on ouvre avec un local_id en paramètre, charger la fiche locale
+
+  // Charger la fiche locale si local_id en paramètre URL
   try {
     const params = new URLSearchParams(window.location.search);
     if (params.has('local_id')) {

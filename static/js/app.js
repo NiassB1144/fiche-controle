@@ -1,8 +1,7 @@
 'use strict';
 
 // ========================================================================
-// FICHE-CONTRÔLE v2 - App.js Consolidé
-// Source unique de vérité pour gestion offline, sync, logging, téléchargement
+// FICHE-CONTRÔLE v2 - App.js Consolidé (CORRIGÉ)
 // ========================================================================
 
 // ========================================================================
@@ -39,7 +38,7 @@ function afficherNotification(message, type = 'info') {
   const id = 'toast_' + Date.now();
   const icons = { success: '✓', warning: '⚠', danger: '❌', info: 'ℹ' };
   const icon = icons[type] || icons.info;
-  
+
   const html = `
     <div id="${id}" class="toast align-items-center text-bg-${type} border-0" role="alert">
       <div class="d-flex">
@@ -47,7 +46,7 @@ function afficherNotification(message, type = 'info') {
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
       </div>
     </div>`;
-  
+
   container.insertAdjacentHTML('beforeend', html);
   const el = document.getElementById(id);
   if (el && window.bootstrap) {
@@ -73,7 +72,7 @@ function creerToastContainer() {
 async function mettreAJourStatut() {
   const el = document.getElementById('statut-connexion');
   if (!el) return;
-  
+
   if (navigator.onLine) {
     el.innerHTML = '<i class="bi bi-wifi"></i> <span>En ligne</span>';
     el.style.background = 'rgba(255,255,255,0.2)';
@@ -97,30 +96,27 @@ document.addEventListener('DOMContentLoaded', () => mettreAJourStatut());
 function ouvrirDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    
+
     req.onupgradeneeded = async (e) => {
       const db = e.target.result;
       logInfo('📦 Mise à niveau IndexedDB...', { version: DB_VERSION });
-      
-      // Créer le store actuel si nécessaire
+
       if (!db.objectStoreNames.contains(STORE)) {
         const store = db.createObjectStore(STORE, { keyPath: 'local_id' });
         store.createIndex('synced', 'synced', { unique: false });
         store.createIndex('saved_at', 'saved_at', { unique: false });
         logInfo('✓ Store créé:', STORE);
       }
-      
-      // Migrer l'ancien store si des données existent
+
       if (db.objectStoreNames.contains(OLD_STORE)) {
         logInfo('🔄 Migration depuis ancien store:', OLD_STORE);
         const oldStore = e.target.transaction.objectStore(OLD_STORE);
         const newStore = e.target.transaction.objectStore(STORE);
-        
+
         const getAllReq = oldStore.getAll();
         getAllReq.onsuccess = (event) => {
           const oldFiches = event.target.result || [];
           logInfo(`🔄 Migration de ${oldFiches.length} fiche(s)...`);
-          
           oldFiches.forEach(item => {
             const fiche = {
               ...item,
@@ -133,12 +129,12 @@ function ouvrirDB() {
         };
       }
     };
-    
+
     req.onsuccess = (e) => {
       logInfo('✓ IndexedDB ouvert');
       resolve(e.target.result);
     };
-    
+
     req.onerror = (e) => {
       logError('Erreur ouverture IndexedDB', e.target.error);
       reject(e.target.error);
@@ -146,24 +142,38 @@ function ouvrirDB() {
   });
 }
 
+// ✅ CORRIGÉ — attend le commit de la transaction avant de retourner
 async function sauvegarderLocalement(donnees) {
   try {
     logInfo('💾 Sauvegarde locale...', donnees);
     const db = await ouvrirDB();
-    const tx = db.transaction(STORE, 'readwrite');
-    const store = tx.objectStore(STORE);
-    
-    const local_id = donnees.local_id || 'fiche_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+
+    const local_id = donnees.local_id
+      || 'fiche_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+
     const fiche = {
       ...donnees,
       local_id,
       synced: false,
       saved_at: new Date().toISOString()
     };
-    
-    store.put(fiche);
+
+    // Attendre le COMMIT de la transaction avant de continuer
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      const store = tx.objectStore(STORE);
+      store.put(fiche);
+      tx.oncomplete = () => {
+        logInfo('✓ Fiche sauvegardée localement (commit OK):', { local_id });
+        resolve();
+      };
+      tx.onerror = (e) => {
+        logError('Erreur commit IndexedDB', e.target.error);
+        reject(e.target.error);
+      };
+    });
+
     await majBanniereSync();
-    logInfo('✓ Fiche sauvegardée localement:', { local_id });
     afficherNotification('Fiche sauvegardée localement', 'success');
     return local_id;
   } catch (e) {
@@ -180,7 +190,7 @@ async function getFichesNonSynced() {
       const tx = db.transaction(STORE, 'readonly');
       const store = tx.objectStore(STORE);
       const req = store.getAll();
-      
+
       req.onsuccess = () => {
         const fiches = (req.result || []).filter(item => item.synced !== true);
         resolve(fiches);
@@ -196,6 +206,23 @@ async function getFichesNonSynced() {
   }
 }
 
+// ✅ NOUVEAU — retourne TOUTES les fiches locales (syncées ou non)
+async function getToutesFichesLocales() {
+  try {
+    const db = await ouvrirDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const store = tx.objectStore(STORE);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch (e) {
+    logError('Erreur getToutesFichesLocales', e);
+    return [];
+  }
+}
+
 async function getFicheByLocalId(local_id) {
   try {
     const db = await ouvrirDB();
@@ -203,7 +230,7 @@ async function getFicheByLocalId(local_id) {
       const tx = db.transaction(STORE, 'readonly');
       const store = tx.objectStore(STORE);
       const req = store.get(local_id);
-      
+
       req.onsuccess = () => resolve(req.result || null);
       req.onerror = () => {
         logWarn('Erreur lecture fiche', { local_id });
@@ -224,7 +251,7 @@ async function deleteLocalFiche(local_id) {
       const tx = db.transaction(STORE, 'readwrite');
       const store = tx.objectStore(STORE);
       const req = store.delete(local_id);
-      
+
       req.onsuccess = () => {
         logInfo('✓ Fiche supprimée:', { local_id });
         majBanniereSync();
@@ -246,7 +273,7 @@ async function marquerSynced(local_id, server_pk = null) {
     const tx = db.transaction(STORE, 'readwrite');
     const store = tx.objectStore(STORE);
     const req = store.get(local_id);
-    
+
     req.onsuccess = () => {
       if (req.result) {
         const updated = {
@@ -299,9 +326,9 @@ async function majBanniereSync() {
     const fiches = await getFichesNonSynced();
     const banner = document.getElementById('sync-banner');
     const badge = document.getElementById('sync-count');
-    
+
     if (!banner) return;
-    
+
     if (fiches.length > 0) {
       banner.style.display = 'flex';
       if (badge) badge.textContent = fiches.length;
@@ -316,36 +343,46 @@ async function majBanniereSync() {
 }
 
 // ========================================================================
-// SECTION 7: RENDU LISTE FICHES LOCALES
+// SECTION 7: RENDU LISTE FICHES LOCALES (CORRIGÉ)
 // ========================================================================
 
 async function renderLocalFiches() {
   try {
     const container = document.getElementById('local-fiches-list');
     if (!container) return;
-    
-    const fiches = await getFichesNonSynced();
+
+    // ✅ Hors ligne → toutes les fiches locales (syncées ou non)
+    //    En ligne  → seulement celles en attente de sync
+    const fiches = navigator.onLine
+      ? await getFichesNonSynced()
+      : await getToutesFichesLocales();
+
     container.innerHTML = '';
-    
+
     if (!fiches || !fiches.length) {
-      container.innerHTML = '<div class="small text-muted">Aucune fiche locale en attente.</div>';
+      container.innerHTML = navigator.onLine
+        ? '<div class="small text-muted">Aucune fiche locale en attente.</div>'
+        : '<div class="small text-muted">Aucune fiche disponible hors ligne.</div>';
       logInfo('✓ Affichage: aucune fiche locale');
       return;
     }
-    
-    logInfo(`✓ Affichage ${fiches.length} fiche(s) locale(s)`);
-    
+
+    logInfo(`✓ Affichage ${fiches.length} fiche(s) — en ligne: ${navigator.onLine}`);
+
     fiches.forEach(f => {
       const div = document.createElement('div');
       div.className = 'fiche-card p-3 mb-2';
       const entreprise = f.entreprise || '(Sans nom)';
       const datec = f.date_controle || 'N/A';
       const savedAt = new Date(f.saved_at).toLocaleDateString('fr-FR');
-      
+      const badgeSync = f.synced
+        ? '<span class="badge bg-success ms-2">Synchronisée</span>'
+        : '<span class="badge bg-warning text-dark ms-2">En attente</span>';
+
       div.innerHTML = `
         <div class="d-flex justify-content-between align-items-start">
           <div class="flex-grow-1">
-            <div class="fw-bold">${entreprise}</div>
+            <div class="fw-bold">${entreprise}${badgeSync}</div>
             <div class="small text-muted">
               <i class="bi bi-calendar"></i> ${datec}
             </div>
@@ -368,18 +405,17 @@ async function renderLocalFiches() {
             </button>
           </div>
         </div>`;
-      
+
       container.appendChild(div);
     });
-    
-    // Événements
+
     container.querySelectorAll('[data-local-edit]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const id = e.currentTarget.getAttribute('data-local-edit');
         window.location.href = '/fiches/nouvelle/?local_id=' + encodeURIComponent(id);
       });
     });
-    
+
     container.querySelectorAll('[data-local-delete]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.getAttribute('data-local-delete');
@@ -388,14 +424,14 @@ async function renderLocalFiches() {
         renderLocalFiches();
       });
     });
-    
+
     container.querySelectorAll('[data-local-download-json]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.getAttribute('data-local-download-json');
         await downloadFicheAsJson(id);
       });
     });
-    
+
     container.querySelectorAll('[data-local-download-pdf]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.getAttribute('data-local-download-pdf');
@@ -415,13 +451,13 @@ async function downloadFicheAsJson(local_id) {
   try {
     logInfo('💾 Téléchargement JSON...', { local_id });
     const fiche = await getFicheByLocalId(local_id);
-    
+
     if (!fiche) {
       afficherNotification('Fiche non trouvée', 'danger');
       logWarn('Fiche non trouvée', { local_id });
       return;
     }
-    
+
     const jsonStr = JSON.stringify(fiche, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -432,7 +468,7 @@ async function downloadFicheAsJson(local_id) {
     link.download = `fiche_${entreprise}_${dateStr}.json`;
     link.click();
     URL.revokeObjectURL(url);
-    
+
     logInfo('✓ JSON téléchargé:', { local_id });
     afficherNotification('Fiche téléchargée en JSON', 'success');
   } catch (e) {
@@ -445,22 +481,20 @@ async function downloadFichePdf(local_id) {
   try {
     logInfo('📄 Téléchargement PDF...', { local_id });
     const fiche = await getFicheByLocalId(local_id);
-    
+
     if (!fiche) {
       afficherNotification('Fiche non trouvée', 'danger');
       logWarn('Fiche non trouvée pour PDF', { local_id });
       return;
     }
-    
-    // Vérifier si html2pdf est disponible
+
     if (!window.html2pdf) {
       afficherNotification('Bibliothèque PDF non disponible. Essai JSON...', 'warning');
       logWarn('html2pdf non disponible, fallback JSON');
       await downloadFicheAsJson(local_id);
       return;
     }
-    
-    // Créer le contenu HTML du PDF
+
     const html = `
       <html>
         <head>
@@ -482,7 +516,6 @@ async function downloadFichePdf(local_id) {
             <h1>Fiche de Contrôle</h1>
             <p><small>Générée le ${new Date().toLocaleString('fr-FR')}</small></p>
           </div>
-          
           <div class="section">
             <div class="section-title">Informations Entreprise</div>
             <div class="field">
@@ -494,23 +527,19 @@ async function downloadFichePdf(local_id) {
               <span class="field-value">${fiche.date_controle || 'N/A'}</span>
             </div>
           </div>
-          
           <div class="section">
             <div class="section-title">Données Complètes</div>
             <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 11px;">
 ${JSON.stringify(fiche, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
             </pre>
           </div>
-          
           <div class="footer">
             <p>Document généré localement • ID: ${fiche.local_id}</p>
           </div>
         </body>
       </html>
     `;
-    
-    const element = document.createElement('div');
-    element.innerHTML = html;
+
     const opt = {
       margin: 10,
       filename: `fiche_${fiche.entreprise || 'export'}_${new Date().toISOString().split('T')[0]}.pdf`,
@@ -518,7 +547,7 @@ ${JSON.stringify(fiche, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
       html2canvas: { scale: 2 },
       jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
     };
-    
+
     html2pdf().set(opt).from(html).save();
     logInfo('✓ PDF téléchargé:', { local_id });
     afficherNotification('Fiche téléchargée en PDF', 'success');
@@ -535,84 +564,79 @@ ${JSON.stringify(fiche, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
 let syncInProgress = false;
 let syncRetryCount = 0;
 const MAX_RETRIES = 2;
-const RETRY_DELAY = 2000; // 2 secondes
+const RETRY_DELAY = 2000;
 
 async function syncLocale() {
-  // Éviter les syncs simultanés
   if (syncInProgress) {
     logInfo('⏳ Sync déjà en cours...');
     return;
   }
-  
-  // Vérifier connexion
+
   if (!navigator.onLine) {
     logInfo('📴 Hors ligne - sync annulée');
     return;
   }
-  
+
   const fiches = await getFichesNonSynced();
   if (!fiches.length) {
     logInfo('✓ Aucune fiche à synchroniser');
     return;
   }
-  
+
   syncInProgress = true;
   logInfo(`🔄 Démarrage sync... (${fiches.length} fiche(s))`);
   afficherNotification(`Synchronisation de ${fiches.length} fiche(s)...`, 'info');
-  
+
   try {
     const csrfToken = document.cookie.split('; ')
       .find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
-    
+
     const resp = await fetch('/api/sync/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': csrfToken
       },
-      body: JSON.stringify({ fiches }),
-      timeout: 15000
+      body: JSON.stringify({ fiches })
     });
-    
+
     if (resp.ok) {
       const data = await resp.json();
       logInfo('📨 Réponse serveur reçue', { synchronisees: data.synchronisees });
-      
-      // Marquer comme syncées
+
       for (const f of (data.fiches || [])) {
         if (f.local_id) {
           await marquerSynced(f.local_id, f.server_pk);
         }
       }
-      
+
       await majBanniereSync();
       await renderLocalFiches();
-      
+
       if (data.synchronisees > 0) {
         afficherNotification(`✓ ${data.synchronisees} fiche(s) synchronisée(s)!`, 'success');
         logInfo('✓ Sync réussie!', { synchronisees: data.synchronisees });
       }
-      
+
       syncRetryCount = 0;
     } else {
       throw new Error(`Erreur serveur: ${resp.status} ${resp.statusText}`);
     }
   } catch (e) {
     logError('Erreur sync', e.message);
-    
-    // Retry automatique après 2s (max 2 tentatives)
+
     if (syncRetryCount < MAX_RETRIES && navigator.onLine) {
       syncRetryCount++;
       logInfo(`⏱️  Retry ${syncRetryCount}/${MAX_RETRIES} dans ${RETRY_DELAY}ms...`);
       afficherNotification(`Tentative ${syncRetryCount}/${MAX_RETRIES} dans 2s...`, 'warning');
-      
+
       setTimeout(() => {
         syncInProgress = false;
         syncLocale();
       }, RETRY_DELAY);
       return;
     }
-    
+
     afficherNotification('Sync échouée - réessai au retour de la connexion', 'danger');
     syncRetryCount = 0;
   } finally {
@@ -658,30 +682,29 @@ if ('serviceWorker' in navigator) {
 
 document.addEventListener('DOMContentLoaded', () => {
   logInfo('🚀 Initialisation application...');
-  
-  // Vérifier IndexedDB
+
   if (!window.indexedDB) {
     logWarn('⚠️  IndexedDB non disponible!');
     afficherNotification('Attention: Mode offline limité (IndexedDB non disponible)', 'warning');
   }
-  
-  // Initialiser UI
+
   majBanniereSync();
   renderLocalFiches();
   logInfo('✓ UI initialisée');
-  
-  // Événement retour en ligne
+
   window.addEventListener('online', () => {
     logInfo('📡 Événement: retour en ligne détecté');
     mettreAJourStatut();
+    // ✅ Rafraîchir la liste au retour en ligne
+    renderLocalFiches();
   });
-  
-  // Événement déconnexion
+
   window.addEventListener('offline', () => {
     logInfo('📴 Événement: déconnexion détectée');
+    // ✅ Rafraîchir la liste pour afficher toutes les fiches locales
+    renderLocalFiches();
   });
-  
-  // Bouton installer PWA
+
   const btnInstallerPwa = document.getElementById('btn-installer-pwa');
   if (btnInstallerPwa) {
     btnInstallerPwa.addEventListener('click', async () => {
@@ -695,8 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (banner) banner.style.display = 'none';
     });
   }
-  
-  // Bouton fermer PWA banner
+
   const btnFermerPwa = document.getElementById('btn-fermer-pwa');
   if (btnFermerPwa) {
     btnFermerPwa.addEventListener('click', () => {
@@ -705,8 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
       logInfo('📱 PWA banner fermée');
     });
   }
-  
-  // Sync auto au chargement si en ligne
+
   if (navigator.onLine) {
     const interval = setInterval(async () => {
       const count = await getLocalFicheCount();
@@ -717,12 +738,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }, 2000);
   }
-  
+
   logInfo('✓ Application prête');
 });
 
 // ========================================================================
-// SECTION 13: EXPORTS GLOBAUX (pour console & debugging)
+// SECTION 13: EXPORTS GLOBAUX
 // ========================================================================
 
 window.FicheApp = {
@@ -732,6 +753,7 @@ window.FicheApp = {
   getLocalFicheCount,
   getLocalFichesList,
   getFichesNonSynced,
+  getToutesFichesLocales,
   getFicheByLocalId,
   deleteLocalFiche,
   sauvegarderLocalement,
