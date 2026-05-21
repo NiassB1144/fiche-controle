@@ -44,11 +44,31 @@ def serve_manifest(request):
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
 
+def serve_offline(request):
+    """Sert la page offline pour le Service Worker fallback."""
+    candidates = [
+        os.path.join(settings.BASE_DIR, 'static', 'offline.html'),
+        os.path.join(settings.BASE_DIR, 'staticfiles', 'offline.html'),
+    ]
+    content = None
+    for path_candidate in candidates:
+        if os.path.exists(path_candidate):
+            with open(path_candidate, 'r', encoding='utf-8') as f:
+                content = f.read()
+            break
+    if content is None:
+        return HttpResponse('<h1>Hors ligne</h1>', content_type='text/html', status=200)
+    response = HttpResponse(content, content_type='text/html')
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
+
 
 urlpatterns = [
     # PWA — toujours en premier
     path('sw.js', serve_sw, name='sw'),
     path('manifest.json', serve_manifest, name='manifest'),
+    path('offline.html', serve_offline, name='offline'),
 
     # Favicon
     path('favicon.ico', RedirectView.as_view(url='/static/icons/icon-192.png', permanent=True)),
