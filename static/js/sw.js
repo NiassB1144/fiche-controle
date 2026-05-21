@@ -1,8 +1,8 @@
 // ========================================================================
-// SERVICE WORKER — fiche-controle-v9 (corrigé avec POST + IndexedDB + redirect fix)
+// SERVICE WORKER — fiche-controle-v10 (POST + IndexedDB + redirect fix)
 // ========================================================================
 
-const CACHE_NAME = 'fiche-controle-v9';
+const CACHE_NAME = 'fiche-controle-v10';
 const DB_NAME = 'ficheControleDB';
 const DB_VERSION = 2;
 const STORE = 'fiches_locales';
@@ -167,7 +167,10 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then((response) => {
           // ✅ Correction : ignorer les redirections opaques
-          if (response.ok && response.type !== 'opaqueredirect') {
+          if (response.type === 'opaqueredirect') {
+            return response; // renvoyer la redirection sans la mettre en cache
+          }
+          if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
