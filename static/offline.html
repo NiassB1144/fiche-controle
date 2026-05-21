@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#006633">
+  <title>Hors ligne — IRTSS Louga</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f4f7fc;
+      color: #1e2a3e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .card {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 2.5rem 2rem;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    .icon { font-size: 3rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.4rem; font-weight: 700; color: #006633; margin-bottom: 0.5rem; }
+    p { color: #666; font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.6; }
+    .btn {
+      display: inline-block;
+      background: #006633;
+      color: white;
+      border: none;
+      border-radius: 40px;
+      padding: 0.65rem 1.8rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      margin: 0.3rem;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #008844; }
+    .btn-outline {
+      background: transparent;
+      color: #006633;
+      border: 2px solid #006633;
+    }
+    .btn-outline:hover { background: #006633; color: white; }
+    #local-fiches-section { margin-top: 2rem; text-align: left; }
+    #local-fiches-section h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
+    .fiche-item {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .fiche-nom { font-weight: 600; font-size: 0.9rem; }
+    .fiche-date { font-size: 0.75rem; color: #888; }
+    .badge-pending {
+      background: #fff3cd;
+      color: #856404;
+      border-radius: 20px;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    #msg-vide { color: #aaa; font-size: 0.85rem; text-align: center; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📴</div>
+    <h1>Vous êtes hors ligne</h1>
+    <p>Pas de connexion internet. Vos fiches sauvegardées localement sont disponibles ci-dessous.</p>
+    <a href="/fiches/" class="btn">Retour aux fiches</a>
+    <a href="/fiches/nouvelle/" class="btn btn-outline">Nouvelle fiche</a>
+
+    <div id="local-fiches-section">
+      <h2>📋 Fiches locales</h2>
+      <div id="local-list"><p id="msg-vide">Chargement...</p></div>
+    </div>
+  </div>
+
+  <script>
+    const DB_NAME = 'ficheControleDB';
+    const DB_VERSION = 2;
+    const STORE = 'fiches_locales';
+
+    function ouvrirDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    async function afficherFichesLocales() {
+      const container = document.getElementById('local-list');
+      try {
+        const db = await ouvrirDB();
+        const tx = db.transaction(STORE, 'readonly');
+        const req = tx.objectStore(STORE).getAll();
+        req.onsuccess = () => {
+          const fiches = req.result || [];
+          if (!fiches.length) {
+            container.innerHTML = '<p id="msg-vide">Aucune fiche sauvegardée localement.</p>';
+            return;
+          }
+          container.innerHTML = '';
+          fiches.forEach(f => {
+            const div = document.createElement('div');
+            div.className = 'fiche-item';
+            div.innerHTML = `
+              <div>
+                <div class="fiche-nom">${f.entreprise || '(Sans nom)'}</div>
+                <div class="fiche-date">${f.date_controle || 'N/A'}</div>
+              </div>
+              <div>
+                <span class="badge-pending">${f.synced ? 'Sync.' : 'En attente'}</span>
+                <a href="/fiches/nouvelle/?local_id=${encodeURIComponent(f.local_id)}"
+                   style="margin-left:8px;font-size:0.8rem;color:#006633;font-weight:600;">
+                  Modifier
+                </a>
+              </div>`;
+            container.appendChild(div);
+          });
+        };
+        req.onerror = () => {
+          container.innerHTML = '<p id="msg-vide">Erreur de lecture.</p>';
+        };
+      } catch (e) {
+        container.innerHTML = '<p id="msg-vide">IndexedDB non disponible.</p>';
+      }
+    }
+
+    afficherFichesLocales();
+
+    // Si on revient en ligne → rediriger vers /fiches/
+    window.addEventListener('online', () => {
+      window.location.href = '/fiches/';
+    });
+  </script>
+</body>
+</html>

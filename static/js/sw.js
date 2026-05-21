@@ -1,14 +1,15 @@
 // ========================================================================
-// SERVICE WORKER — fiche-controle-v6 (CORRIGÉ)
+// SERVICE WORKER — fiche-controle-v7 (CORRIGÉ)
 // ========================================================================
 
-const CACHE_NAME = 'fiche-controle-v6';
+const CACHE_NAME = 'fiche-controle-v7';
 
 const ASSETS = [
   '/',
   '/fiches/',
   '/fiches/nouvelle/',
   '/connexion/',
+  '/offline.html',
   '/static/css/bootstrap.min.css',
   '/static/css/style.css',
   '/static/js/bootstrap.bundle.min.js',
@@ -20,7 +21,7 @@ const ASSETS = [
   '/static/icons/logo.png',
 ];
 
-// ── Install : précacher les assets ──────────────────────────────────────
+// ── Install ──────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -37,7 +38,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// ── Activate : supprimer les anciens caches ──────────────────────────────
+// ── Activate ─────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
@@ -50,7 +51,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// ── Fetch : stratégies par type de requête ───────────────────────────────
+// ── Fetch ─────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith('http')) return;
@@ -59,8 +60,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/admin/')) return;
 
-  // ── API GET : Network First + mise en cache pour hors ligne ─────────
-  // ✅ CORRIGÉ — on NE bloque plus /api/, on cache les réponses GET
+  // ── API GET : Network First + mise en cache ───────────────────────────
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(event.request)
@@ -74,7 +74,6 @@ self.addEventListener('fetch', (event) => {
         .catch(() =>
           caches.match(event.request).then((cached) => {
             if (cached) return cached;
-            // Pas de cache dispo → réponse JSON vide valide pour ne pas faire planter le JS
             return new Response(JSON.stringify({ fiches: [], offline: true }), {
               status: 200,
               headers: { 'Content-Type': 'application/json' }
@@ -85,23 +84,33 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ── Pages HTML : Network First ────────────────────────────────────────
+  // ── Pages HTML : Network First + cache obligatoire ────────────────────
+  // FIX PRINCIPAL : on met TOUJOURS la page en cache au retour réseau
+  // et on sert depuis le cache en hors ligne (y compris /fiches/)
   if (event.request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          // Mettre en cache même si statut 200 (pages avec session Django)
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
           return response;
         })
         .catch(() =>
-          caches.match(event.request).then((cached) => cached || caches.match('/'))
+          caches.match(event.request).then((cached) => {
+            if (cached) return cached;
+            // Fallback : page offline dédiée
+            return caches.match('/offline.html')
+              .then((offlinePage) => offlinePage || caches.match('/'));
+          })
         )
     );
     return;
   }
 
-  // ── Fichiers statiques : Cache First ──────────────────────────────────
+  // ── Fichiers statiques : Cache First ─────────────────────────────────
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
