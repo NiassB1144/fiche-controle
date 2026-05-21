@@ -1,8 +1,8 @@
 // ========================================================================
-// SERVICE WORKER — fiche-controle-v8 (corrigé avec POST + IndexedDB)
+// SERVICE WORKER — fiche-controle-v9 (corrigé avec POST + IndexedDB + redirect fix)
 // ========================================================================
 
-const CACHE_NAME = 'fiche-controle-v8';
+const CACHE_NAME = 'fiche-controle-v9';
 const DB_NAME = 'ficheControleDB';
 const DB_VERSION = 2;
 const STORE = 'fiches_locales';
@@ -128,7 +128,6 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request).catch(async () => {
         const body = await event.request.clone().json();
         await saveFicheLocal(body);
-        // Réponse immédiate au frontend
         return new Response(JSON.stringify({ offline: true, saved: true }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' }
@@ -167,7 +166,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          if (response.ok) {
+          // ✅ Correction : ignorer les redirections
+          if (response.ok && response.type !== 'opaqueredirect') {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
