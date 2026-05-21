@@ -166,7 +166,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // ✅ Correction : ignorer les redirections
+          // ✅ Correction : ignorer les redirections opaques
           if (response.ok && response.type !== 'opaqueredirect') {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
