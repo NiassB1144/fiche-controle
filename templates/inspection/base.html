@@ -3,7 +3,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
   <meta name="theme-color" content="#006633">
   <meta name="description" content="Plateforme de contrôle de l'Inspection du Travail et de la Sécurité sociale de Louga">
 
@@ -102,6 +102,9 @@
       color: white;
       transition: background 0.3s ease;
     }
+    .badge-statut.offline {
+      background: rgba(220, 53, 69, 0.8);
+    }
 
     .dropdown-user .dropdown-toggle {
       background: rgba(255,255,255,0.15);
@@ -138,6 +141,9 @@
       flex-wrap: wrap;
       text-align: center;
     }
+    .sync-banner.visible {
+      display: flex;
+    }
     .sync-banner .btn-sync {
       color: #006633;
       font-weight: 600;
@@ -147,6 +153,7 @@
       padding: 0.2rem 0.9rem;
       font-size: 0.8rem;
       transition: all 0.2s;
+      cursor: pointer;
     }
     .sync-banner .btn-sync:hover { background: #006633; color: white; }
 
@@ -156,6 +163,31 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.05);
       font-weight: 500;
       padding: 0.9rem 1.2rem;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-10px);
+        display: none;
+      }
+    }
+    .alert-modern.fade-out {
+      animation: fadeOut 0.5s ease-out forwards;
     }
     .alert-success { background: #e0f2e9; color: #004d26; border-left: 5px solid #006633; }
     .alert-danger  { background: #ffe6e5; color: #a1220a; border-left: 5px solid #dc3545; }
@@ -179,6 +211,9 @@
     @media (max-width: 768px) {
       .navbar-modern .container-fluid { flex-wrap: wrap; }
       .btn-nouvelle-fiche { padding: 0.35rem 1rem; font-size: 0.85rem; }
+      .badge-statut span { display: none; }
+      .badge-statut i { font-size: 1.1rem; }
+      .alert-modern { padding: 0.7rem 1rem; font-size: 0.85rem; }
     }
   </style>
 
@@ -219,6 +254,17 @@
             <span>Mes fiches</span>
           </a>
         </li>
+        <!-- 🔽 LIEN ADMINISTRATION (visible uniquement pour les admins) 🔽 -->
+        {% if user.is_staff %}
+        <li class="nav-item">
+          <a class="nav-link-custom {% if 'administration' in request.resolver_match.url_name %}active{% endif %}"
+             href="{% url 'administration' %}">
+            <i class="bi bi-shield-lock-fill"></i>
+            <span>Administration</span>
+          </a>
+        </li>
+        {% endif %}
+        <!-- 🔼 FIN LIEN ADMINISTRATION 🔼 -->
       </ul>
 
       <div class="d-flex align-items-center gap-3 ms-auto">
@@ -254,17 +300,19 @@
               </span>
             </li>
             <li><hr class="dropdown-divider"></li>
+            <!-- 🔽 ADMINISTRATION DANS LE MENU DEROULANT (aussi visible pour les admins) 🔽 -->
             {% if user.is_staff %}
             <li>
               <a class="dropdown-item" href="{% url 'administration' %}">
-                <i class="bi bi-people"></i>Administration
+                <i class="bi bi-shield-lock-fill"></i>Administration
               </a>
             </li>
             <li><hr class="dropdown-divider"></li>
             {% endif %}
+            <!-- 🔼 FIN ADMINISTRATION DANS MENU 🔼 -->
             <li>
               <a class="dropdown-item text-danger fw-semibold" href="{% url 'deconnexion' %}">
-                <i class="bi bi-box-arrow-right"></i>Deconnexion
+                <i class="bi bi-box-arrow-right"></i>Déconnexion
               </a>
             </li>
           </ul>
@@ -279,21 +327,26 @@
 <div id="sync-banner" class="sync-banner">
   <i class="bi bi-cloud-upload fs-5"></i>
   <span>
-    <strong><span id="sync-count">0</span> fiche(s)</strong> sauvegardee(s) hors-ligne en attente de synchronisation.
+    <strong><span id="sync-count">0</span> fiche(s)</strong> sauvegardée(s) hors-ligne en attente de synchronisation.
   </span>
-  <a href="#" class="btn-sync" onclick="syncLocale(); return false;">
+  <a href="#" class="btn-sync" onclick="if(window.FicheApp) window.FicheApp.syncAll(); return false;">
     <i class="bi bi-arrow-repeat me-1"></i>Synchroniser maintenant
   </a>
 </div>
 {% endif %}
 
-<!-- Messages Django -->
+<!-- Messages Django avec disparition automatique après 4 secondes -->
 {% if messages %}
-<div class="container-fluid px-3 px-lg-4 pt-3">
+<div class="container-fluid px-3 px-lg-4 pt-3" id="messages-container">
   {% for message in messages %}
-  <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show alert-modern" role="alert">
+  <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show alert-modern message-item" role="alert" data-message-id="{{ forloop.counter }}">
+    <i class="bi 
+      {% if message.tags == 'success' %}bi-check-circle-fill
+      {% elif message.tags == 'danger' %}bi-exclamation-triangle-fill
+      {% elif message.tags == 'warning' %}bi-exclamation-triangle-fill
+      {% else %}bi-info-circle-fill{% endif %} me-2"></i>
     {{ message }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
   </div>
   {% endfor %}
 </div>
@@ -308,13 +361,13 @@
 <footer class="footer text-center py-4 mt-5">
   <div class="container">
     <i class="bi bi-briefcase-fill me-1 text-muted"></i>
-    Ministere de la Fonction Publique, du Travail et de la Reforme du Service Public
+    Ministère de la Fonction Publique, du Travail et de la Réforme du Service Public
     <br>
     <span class="small opacity-75">
-      Inspection regionale du Travail et de la Securite sociale de Louga —
+      Inspection régionale du Travail et de la Sécurité sociale de Louga —
       <i class="bi bi-c-circle"></i>
       <span id="current-year"></span>
-      Tous droits reserves
+      Tous droits réservés
     </span>
   </div>
 </footer>
@@ -322,10 +375,8 @@
 <!-- Bootstrap JS LOCAL -->
 <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
 
-<!-- App JS -->
+<!-- App JS (avec IndexedDB et gestion hors-ligne) -->
 <script src="{% static 'js/app.js' %}"></script>
-
-<!-- Offline JS intégré dans `app.js` (évite duplication) -->
 
 <script>
   document.getElementById('current-year').innerText = new Date().getFullYear();
@@ -335,10 +386,10 @@
     if (!statusBadge) return;
     if (navigator.onLine) {
       statusBadge.innerHTML = '<i class="bi bi-wifi"></i> <span>En ligne</span>';
-      statusBadge.style.background = 'rgba(255,255,255,0.2)';
+      statusBadge.classList.remove('offline');
     } else {
       statusBadge.innerHTML = '<i class="bi bi-wifi-off"></i> <span>Hors ligne</span>';
-      statusBadge.style.background = 'rgba(220,53,69,0.8)';
+      statusBadge.classList.add('offline');
     }
   }
 
@@ -346,16 +397,90 @@
   window.addEventListener('online', updateConnectionStatus);
   window.addEventListener('offline', updateConnectionStatus);
 
+  // Enregistrement du Service Worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('/sw.js', { scope: '/' })
         .then(function (reg) {
-          console.log('[SW] Enregistre — scope :', reg.scope);
+          console.log('[SW] Enregistré — scope :', reg.scope);
         })
         .catch(function (error) {
           console.error('[SW] Erreur :', error);
         });
     });
+  }
+
+  // ===== FONCTION POUR FAIRE DISPARAÎTRE LES MESSAGES APRÈS 4 SECONDES =====
+  function autoDismissMessages() {
+    const messages = document.querySelectorAll('.message-item');
+    
+    messages.forEach((message, index) => {
+      const delay = index * 500;
+      
+      setTimeout(() => {
+        message.classList.add('fade-out');
+        setTimeout(() => {
+          if (message && message.parentNode) {
+            message.remove();
+            const remainingMessages = document.querySelectorAll('.message-item');
+            const container = document.getElementById('messages-container');
+            if (remainingMessages.length === 0 && container) {
+              container.style.display = 'none';
+            }
+          }
+        }, 500);
+      }, 4000 + delay);
+    });
+  }
+
+  function setupManualDismiss() {
+    const closeButtons = document.querySelectorAll('.alert-modern .btn-close');
+    closeButtons.forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        const alert = this.closest('.alert-modern');
+        if (alert) {
+          alert.classList.add('fade-out');
+          setTimeout(() => {
+            if (alert && alert.parentNode) {
+              alert.remove();
+            }
+          }, 500);
+        }
+      });
+    });
+  }
+
+  if (document.querySelector('.message-item')) {
+    setTimeout(autoDismissMessages, 1000);
+    setupManualDismiss();
+  }
+
+  // Afficher/masquer la bannière de sync en fonction des fiches locales
+  async function updateSyncBanner() {
+    const banner = document.getElementById('sync-banner');
+    const countSpan = document.getElementById('sync-count');
+    if (!banner || !countSpan) return;
+    
+    try {
+      if (window.FicheApp && typeof window.FicheApp.getPendingSyncCount === 'function') {
+        const count = await window.FicheApp.getPendingSyncCount();
+        countSpan.innerText = count;
+        if (count > 0) {
+          banner.classList.add('visible');
+        } else {
+          banner.classList.remove('visible');
+        }
+      }
+    } catch (e) {
+      console.warn('Erreur mise à jour bannière sync:', e);
+    }
+  }
+
+  window.updateSyncBanner = updateSyncBanner;
+  
+  if (typeof updateSyncBanner === 'function') {
+    setInterval(updateSyncBanner, 30000);
+    document.addEventListener('DOMContentLoaded', updateSyncBanner);
   }
 </script>
 

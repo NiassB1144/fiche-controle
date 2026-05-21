@@ -88,10 +88,15 @@
   
   /* Styles pour l'impression PDF */
   @media print {
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
     body {
       background: white;
       padding: 0;
       margin: 0;
+      width: 100%;
     }
     .no-print {
       display: none !important;
@@ -100,17 +105,15 @@
       box-shadow: none;
       border-radius: 0;
       margin: 0;
+      width: 100%;
+      max-width: 100%;
     }
     .entete-officiel {
       background: white;
       border: 1px solid #ddd;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
     }
     .section-titre {
       color: #006633 !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
     }
     .signature-block {
       border: 1px solid #ddd;
@@ -122,6 +125,7 @@
     }
   }
   
+  /* Optimisations mobiles - Boutons icônes uniquement */
   @media (max-width: 768px) {
     .info-label {
       width: 100%;
@@ -133,6 +137,134 @@
     .section-interne {
       padding: 1rem;
     }
+    .fiche-unique-card {
+      border-radius: 20px;
+    }
+    .badge-statut {
+      font-size: 0.7rem;
+      padding: 0.25rem 0.7rem;
+    }
+    .badge-statut span {
+      display: none;
+    }
+    .badge-statut i {
+      font-size: 0.9rem;
+      margin: 0;
+    }
+    
+    /* Boutons avec icônes uniquement sur mobile */
+    .btn-group-mobile {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .btn-group-mobile .btn {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 40px;
+      font-size: 1.1rem;
+    }
+    .btn-group-mobile .btn span {
+      display: none;
+    }
+    .btn-group-mobile .btn i {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+    
+    /* Ajustement pour le bouton retour qui peut garder du texte */
+    .btn-group-mobile .btn-retour {
+      width: auto;
+      padding: 0 0.8rem;
+    }
+    .btn-group-mobile .btn-retour span {
+      display: inline;
+      font-size: 0.75rem;
+    }
+    .btn-group-mobile .btn-retour i {
+      margin-right: 4px;
+    }
+    
+    .table-mini th, .table-mini td {
+      padding: 0.4rem 0.5rem;
+      font-size: 0.75rem;
+    }
+    .section-titre {
+      font-size: 0.95rem;
+    }
+  }
+  
+  /* Animation de chargement PDF */
+  .pdf-loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+  .pdf-loading.active {
+    display: flex;
+  }
+  .pdf-loading .spinner {
+    background: white;
+    border-radius: 20px;
+    padding: 20px 30px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  }
+  .pdf-loading .spinner i {
+    font-size: 2rem;
+    color: #006633;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  /* Mode hors-ligne */
+  .offline-badge {
+    background: #dc3545;
+    color: white;
+    border-radius: 40px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  
+  /* Tableaux responsifs */
+  .table-mini {
+    table-layout: auto;
+  }
+  
+  /* Tooltip pour les boutons sur mobile */
+  .btn-icon-only {
+    position: relative;
+  }
+  .btn-icon-only:active::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    z-index: 100;
   }
 </style>
 {% endblock %}
@@ -143,9 +275,14 @@
   <!-- En-tête avec actions et statut -->
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 no-print">
     <div>
-      <h4 class="fw-bold mb-1 d-flex align-items-center gap-2">
+      <h4 class="fw-bold mb-1 d-flex align-items-center gap-2 flex-wrap">
         <i class="bi bi-building text-senegal"></i>
         {{ fiche.entreprise }}
+        {% if not navigator.onLine %}
+        <span class="offline-badge">
+          <i class="bi bi-wifi-off"></i> Hors-ligne
+        </span>
+        {% endif %}
       </h4>
       <div class="d-flex flex-wrap gap-3 text-muted small">
         <span><i class="bi bi-geo-alt-fill me-1"></i>{{ fiche.lieu|default:"Lieu non spécifié" }}</span>
@@ -153,29 +290,42 @@
         <span><i class="bi bi-person-badge me-1"></i>{{ fiche.inspecteur.first_name }} {{ fiche.inspecteur.last_name }}</span>
       </div>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
+    
+    <!-- Boutons avec icônes uniquement sur mobile -->
+    <div class="btn-group-mobile">
       <span class="badge-statut {% if fiche.statut == 'soumis' %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
         {% if fiche.statut == 'soumis' %}
-          <i class="bi bi-check-circle-fill me-1"></i>Soumis
+          <i class="bi bi-check-circle-fill"></i>
+          <span>Soumis</span>
         {% else %}
-          <i class="bi bi-pencil-square me-1"></i>Brouillon
+          <i class="bi bi-pencil-square"></i>
+          <span>Brouillon</span>
         {% endif %}
       </span>
-      <a href="{% url 'modifier_fiche' fiche.pk %}" class="btn btn-outline-primary btn-sm rounded-pill">
-        <i class="bi bi-pencil me-1"></i>Modifier
+      <a href="{% url 'modifier_fiche' fiche.pk %}" class="btn btn-outline-primary btn-sm rounded-pill" data-tooltip="Modifier">
+        <i class="bi bi-pencil"></i>
+        <span>Modifier</span>
       </a>
-      <a href="{% url 'export_fiche_json' fiche.pk %}" class="btn btn-outline-info btn-sm rounded-pill" title="Télécharger en JSON">
-        <i class="bi bi-download me-1"></i>JSON
-      </a>
-      <button id="btn-pdf" class="btn btn-outline-danger btn-sm rounded-pill">
-        <i class="bi bi-file-pdf me-1"></i>PDF
+      <button id="btn-pdf" class="btn btn-outline-danger btn-sm rounded-pill" data-tooltip="Télécharger PDF">
+        <i class="bi bi-file-pdf"></i>
+        <span>PDF</span>
       </button>
-      <a href="{% url 'supprimer_fiche' fiche.pk %}" class="btn btn-outline-danger btn-sm rounded-pill">
-        <i class="bi bi-trash3 me-1"></i>Supprimer
+      <a href="{% url 'supprimer_fiche' fiche.pk %}" class="btn btn-outline-danger btn-sm rounded-pill" data-tooltip="Supprimer" onclick="return confirm('Supprimer définitivement cette fiche ?')">
+        <i class="bi bi-trash3"></i>
+        <span>Supprimer</span>
       </a>
-      <a href="{% url 'liste_fiches' %}" class="btn btn-outline-secondary btn-sm rounded-pill">
-        <i class="bi bi-arrow-left me-1"></i>Retour
+      <a href="{% url 'liste_fiches' %}" class="btn btn-outline-secondary btn-sm rounded-pill btn-retour" data-tooltip="Retour">
+        <i class="bi bi-arrow-left"></i>
+        <span>Retour</span>
       </a>
+    </div>
+  </div>
+
+  <!-- Loading PDF -->
+  <div id="pdf-loading" class="pdf-loading">
+    <div class="spinner">
+      <i class="bi bi-arrow-repeat"></i>
+      <p class="mb-0 mt-2">Génération du PDF en cours...</p>
     </div>
   </div>
 
@@ -203,20 +353,20 @@
 
     <!-- SECTION 1 : Identification -->
     <div class="section-interne">
-      <div class="section-titre"><i class="bi bi-building"></i> 1. Identification de l’entreprise</div>
+      <div class="section-titre"><i class="bi bi-building"></i> 1. Identification de l'entreprise</div>
       <div class="info-grid">
         <div class="info-item"><div class="info-label">Entreprise</div><div class="info-value fw-bold">{{ fiche.entreprise }}</div></div>
         <div class="info-item"><div class="info-label">Adresse</div><div class="info-value">{{ fiche.adresse|default:"—" }}</div></div>
         <div class="info-item"><div class="info-label">Téléphone</div><div class="info-value">{{ fiche.telephone|default:"—" }}</div></div>
         <div class="info-item"><div class="info-label">E-mail</div><div class="info-value">{{ fiche.email_entreprise|default:"—" }}</div></div>
-        <div class="info-item"><div class="info-label">Date d’ouverture</div><div class="info-value">{{ fiche.date_ouverture|date:"d/m/Y"|default:"—" }}</div></div>
+        <div class="info-item"><div class="info-label">Date d'ouverture</div><div class="info-value">{{ fiche.date_ouverture|date:"d/m/Y"|default:"—" }}</div></div>
         <div class="info-item"><div class="info-label">Forme juridique</div><div class="info-value">{{ fiche.forme_juridique|default:"—" }}</div></div>
         <div class="info-item"><div class="info-label">Activité principale</div><div class="info-value">{{ fiche.activite_principale|default:"—" }}</div></div>
       </div>
       <div class="row mt-3 g-3">
         <div class="col-md-6">
           <div class="border rounded-3 p-3 bg-light">
-            <i class="bi bi-person-circle me-1 text-senegal"></i><strong> Chef d’établissement</strong><br>
+            <i class="bi bi-person-circle me-1 text-senegal"></i><strong> Chef d'établissement</strong><br>
             <span>{{ fiche.chef_nom|default:"—" }}</span><br>
             <small class="text-muted">{{ fiche.chef_cellulaire|default:"" }} {% if fiche.chef_email %} • {{ fiche.chef_email }}{% endif %}</small>
           </div>
@@ -237,7 +387,7 @@
       <div class="row g-3">
         <div class="col-md-6">
           <table class="table-mini">
-            <tr><th>Déclaration d’ouverture (DOE)</th><td>{{ fiche.doe|default:"—" }}</td></tr>
+            <tr><th>Déclaration d'ouverture (DOE)</th><td>{{ fiche.doe|default:"—" }}</td></tr>
             <tr><th>Registre de paie</th><td>{{ fiche.registre_paie|default:"—" }}</td></tr>
           </table>
         </div>
@@ -258,8 +408,14 @@
     <div class="section-interne">
       <div class="section-titre"><i class="bi bi-file-earmark-text"></i> 3. Contrats de travail</div>
       <div class="row g-3">
-        <div class="col-md-6"><table class="table-mini"><tr><th>CDI</th><td>{{ fiche.cdi|default:0 }}</td></tr><tr><th>CDD</th><td>{{ fiche.cdd|default:0 }}</td></tr><tr><th>CS</th><td>{{ fiche.cs|default:0 }}</td></tr></table></div>
-        <div class="col-md-6"><table class="table-mini"><tr><th>C. d’apprentissage</th><td>{{ fiche.c_app|default:0 }}</td></tr><tr><th>Autres contrats</th><td>{{ fiche.autres_contrats|default:0 }}</td></tr><tr class="table-active"><th>Total contrats</th><td><strong>{{ fiche.contrats_total|default:0 }}</strong></td></tr></table></div>
+        <div class="col-md-6"><table class="table-mini"><tr><th>CDI</th><td>{{ fiche.cdi|default:0 }}</td></tr>
+          <tr><th>CDD</th><td>{{ fiche.cdd|default:0 }}</td></tr>
+          <tr><th>CS</th><td>{{ fiche.cs|default:0 }}</td></tr>
+        </table></div>
+        <div class="col-md-6"><table class="table-mini"><tr><th>C. d'apprentissage</th><td>{{ fiche.c_app|default:0 }}</td></tr>
+          <tr><th>Autres contrats</th><td>{{ fiche.autres_contrats|default:0 }}</td></tr>
+          <tr class="table-active"><th>Total contrats</th><td><strong>{{ fiche.contrats_total|default:0 }}</strong></td></tr>
+        </table></div>
       </div>
     </div>
 
@@ -275,7 +431,7 @@
         <tr><th>Salaires de base conformes ?</th><td>Employeur {{ fiche.salaires_conformes_1|default:"—" }} / Travailleurs {{ fiche.salaires_conformes_2|default:"—" }}</td></tr>
         <tr><th>Bulletins de paie réglementaires ?</th><td>Empl. {{ fiche.bulletins_paie_1|default:"—" }} / Trav. {{ fiche.bulletins_paie_2|default:"—" }}</td></tr>
         <tr><th>Heures supplémentaires majorées ?</th><td>Empl. {{ fiche.heures_sup_1|default:"—" }} / Trav. {{ fiche.heures_sup_2|default:"—" }}</td></tr>
-        <tr><th>Prime d’ancienneté ?</th><td>Empl. {{ fiche.prime_anciennete_1|default:"—" }} / Trav. {{ fiche.prime_anciennete_2|default:"—" }}</td></tr>
+        <tr><th>Prime d'ancienneté ?</th><td>Empl. {{ fiche.prime_anciennete_1|default:"—" }} / Trav. {{ fiche.prime_anciennete_2|default:"—" }}</td></tr>
         <tr><th>Jours fériés travaillés majorés ?</th><td>Empl. {{ fiche.jours_feries_1|default:"—" }} / Trav. {{ fiche.jours_feries_2|default:"—" }}</td></tr>
         <tr><th>Indemnités de transport versées ?</th><td>Empl. {{ fiche.indemnites_transport_1|default:"—" }} / Trav. {{ fiche.indemnites_transport_2|default:"—" }}</td></tr>
       </table>
@@ -319,7 +475,7 @@
         <tr><th>EPI disponibles</th><td>Empl. {{ fiche.epi_disponible_1|default:"—" }} / Trav. {{ fiche.epi_disponible_2|default:"—" }}</td></tr>
         <tr><th>Port effectif des EPI</th><td>Empl. {{ fiche.epi_effectif_1|default:"—" }} / Trav. {{ fiche.epi_effectif_2|default:"—" }}</td></tr>
         <tr><th>Toilettes / WC suffisants</th><td>Empl. {{ fiche.toilettes_1|default:"—" }} / Trav. {{ fiche.toilettes_2|default:"—" }}</td></tr>
-        <tr><th>Congés payés avec allocations</th><td>Empl. {{ fiche.conges_1|default:"—" }} / Trav. {{ fiche.conges_2|default:"—" }}</td></tr>
+        <tr><th>Congés payés avec allocations</th><td>Empl. {{ fiche.conges_1|default:"—" }} / Trav. {{ fiche.conges_2|default:"—" }}</td><tr>
         <tr><th>DASMO / Bilan social</th><td>Empl. {{ fiche.dasmo_bs_1|default:"—" }} / Trav. {{ fiche.dasmo_bs_2|default:"—" }}</td></tr>
       </table>
       {% if fiche.observations_divers %}
@@ -346,7 +502,7 @@
             {% if fiche.suite_observations_orales %}<li><i class="bi bi-check-circle-fill text-senegal me-2"></i>Observations orales</li>{% endif %}
             {% if fiche.suite_observations_ecrites %}<li><i class="bi bi-check-circle-fill text-senegal me-2"></i>Observations écrites</li>{% endif %}
             {% if fiche.suite_mise_en_demeure %}<li><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Mise en demeure</li>{% endif %}
-            {% if fiche.suite_pv_infraction %}<li><i class="bi bi-file-earmark-text-fill text-danger me-2"></i>Procès-verbal d’infraction</li>{% endif %}
+            {% if fiche.suite_pv_infraction %}<li><i class="bi bi-file-earmark-text-fill text-danger me-2"></i>Procès-verbal d'infraction</li>{% endif %}
             {% if fiche.suite_refere %}<li><i class="bi bi-gavel text-danger me-2"></i>Référé</li>{% endif %}
           </ul>
         </div>
@@ -364,7 +520,7 @@
         <div class="col-md-6">
           <div class="signature-block">
             <i class="bi bi-pen fs-4 text-senegal"></i>
-            <div class="small text-muted mb-1">L’équipe de contrôle</div>
+            <div class="small text-muted mb-1">L'équipe de contrôle</div>
             <strong>{{ fiche.signature_equipe|default:"—" }}</strong>
           </div>
         </div>
@@ -391,16 +547,92 @@
 <!-- Bibliothèque html2pdf.js pour générer les PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
+  // Gestion du statut hors-ligne
+  let isOnline = navigator.onLine;
+  
+  function updateOfflineStatus() {
+    const offlineBadge = document.querySelector('.offline-badge');
+    if (!navigator.onLine) {
+      if (!offlineBadge) {
+        const titleElem = document.querySelector('h4.fw-bold');
+        if (titleElem) {
+          const badge = document.createElement('span');
+          badge.className = 'offline-badge';
+          badge.innerHTML = '<i class="bi bi-wifi-off"></i> Hors-ligne';
+          titleElem.appendChild(badge);
+        }
+      }
+    } else if (offlineBadge) {
+      offlineBadge.remove();
+    }
+  }
+  
+  window.addEventListener('online', updateOfflineStatus);
+  window.addEventListener('offline', updateOfflineStatus);
+  document.addEventListener('DOMContentLoaded', updateOfflineStatus);
+  
+  // Génération PDF optimisée pour mobile - Version CORRIGÉE
   document.getElementById('btn-pdf').addEventListener('click', function() {
+    const loading = document.getElementById('pdf-loading');
     const element = document.getElementById('pdf-content');
+    
+    loading.classList.add('active');
+    
+    // Sauvegarder le style original
+    const originalWidth = element.style.width;
+    const originalMaxWidth = element.style.maxWidth;
+    const originalMargin = element.style.margin;
+    
+    // Forcer les dimensions pour le PDF
+    element.style.width = '100%';
+    element.style.maxWidth = '100%';
+    element.style.margin = '0';
+    
     const opt = {
-      margin:        [0.5, 0.5, 0.5, 0.5], // marges en inches (top, right, bottom, left)
-      filename:     'Fiche_controle_{{ fiche.entreprise|slugify }}_{{ fiche.date_controle|date:"d-m-Y" }}.pdf',
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, letterRendering: true, useCORS: true, logging: false },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      margin: [0.3, 0.3, 0.3, 0.3],
+      filename: 'Fiche_controle_{{ fiche.entreprise|slugify }}_{{ fiche.date_controle|date:"d-m-Y" }}.pdf',
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { 
+        scale: 2.5,
+        letterRendering: true,
+        useCORS: true,
+        logging: false,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
+      },
+      jsPDF: { 
+        unit: 'mm', 
+        format: 'a4', 
+        orientation: 'portrait',
+        compress: true
+      },
+      pagebreak: { mode: ['css', 'legacy'] }
     };
-    html2pdf().set(opt).from(element).save();
+    
+    html2pdf().set(opt).from(element).save()
+      .then(() => {
+        element.style.width = originalWidth;
+        element.style.maxWidth = originalMaxWidth;
+        element.style.margin = originalMargin;
+        loading.classList.remove('active');
+      })
+      .catch((err) => {
+        console.error('Erreur PDF:', err);
+        element.style.width = originalWidth;
+        element.style.maxWidth = originalMaxWidth;
+        element.style.margin = originalMargin;
+        loading.classList.remove('active');
+        alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
+      });
   });
+  
+  // Détecter si la fiche est en cache
+  if ('caches' in window) {
+    caches.match(window.location.href).then(response => {
+      if (response && !navigator.onLine) {
+        console.log('Affichage depuis le cache');
+      }
+    });
+  }
 </script>
 {% endblock %}

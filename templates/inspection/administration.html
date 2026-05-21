@@ -46,6 +46,64 @@
     padding: 0.3rem 0.9rem;
     font-weight: 500;
   }
+  
+  /* Optimisations mobiles */
+  @media (max-width: 768px) {
+    .admin-card {
+      border-radius: 24px;
+    }
+    .card-header-modern {
+      padding: 0.8rem 1rem;
+    }
+    .card-header-modern h6 {
+      font-size: 0.95rem;
+    }
+    .user-item {
+      padding: 0.75rem !important;
+    }
+    .badge-role {
+      padding: 0.2rem 0.7rem;
+      font-size: 0.7rem;
+    }
+    .btn-outline-danger {
+      padding: 0.3rem 0.8rem;
+      font-size: 0.8rem;
+    }
+  }
+  
+  /* Animation pour les messages de succès/erreur */
+  .alert-slide {
+    animation: slideInRight 0.3s ease-out;
+  }
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  /* Loading state pour le bouton */
+  .btn-loading {
+    pointer-events: none;
+    opacity: 0.6;
+  }
+  .btn-loading i {
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  /* Champ avec erreur */
+  .is-invalid {
+    border-color: #dc3545 !important;
+    background-color: #fff8f8 !important;
+  }
 </style>
 {% endblock %}
 
@@ -58,9 +116,12 @@
       Administration des utilisateurs
     </h5>
     <span class="badge bg-secondary bg-opacity-10 text-dark rounded-pill px-3 py-2">
-      <i class="bi bi-people me-1"></i> {{ utilisateurs.count }} compte(s)
+      <i class="bi bi-people me-1"></i> <span id="users-count">{{ utilisateurs.count }}</span> compte(s)
     </span>
   </div>
+
+  <!-- Messages de succès/erreur -->
+  <div id="admin-messages" class="mb-3"></div>
 
   <div class="row g-4">
     <!-- Colonne : Formulaire de création -->
@@ -70,51 +131,61 @@
           <h6 class="mb-0 fw-bold"><i class="bi bi-person-plus-fill me-2"></i>Créer un nouvel utilisateur</h6>
         </div>
         <div class="card-body p-4">
-          <form method="post" action="{% url 'creer_utilisateur' %}">
+          <form id="create-user-form" method="post" action="{% url 'creer_utilisateur' %}">
             {% csrf_token %}
             
             <div class="mb-3">
               <label class="form-label small fw-semibold"><i class="bi bi-person me-1"></i>Prénom</label>
               <div class="input-group">
                 <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-person text-senegal"></i></span>
-                {{ form.prenom }}
+                <input type="text" name="prenom" id="prenom" class="form-control rounded-end-pill" placeholder="Jean" required>
               </div>
+              <div class="invalid-feedback d-none" id="prenom-error"></div>
             </div>
             
             <div class="mb-3">
               <label class="form-label small fw-semibold"><i class="bi bi-person me-1"></i>Nom</label>
               <div class="input-group">
                 <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-person-badge text-senegal"></i></span>
-                {{ form.nom }}
+                <input type="text" name="nom" id="nom" class="form-control rounded-end-pill" placeholder="Dupont" required>
               </div>
+              <div class="invalid-feedback d-none" id="nom-error"></div>
             </div>
             
             <div class="mb-3">
               <label class="form-label small fw-semibold"><i class="bi bi-envelope me-1"></i>Email</label>
               <div class="input-group">
                 <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-envelope-fill text-senegal"></i></span>
-                {{ form.email }}
+                <input type="email" name="email" id="email" class="form-control rounded-end-pill" placeholder="exemple@irtss.sn" required>
               </div>
+              <div class="invalid-feedback d-none" id="email-error"></div>
             </div>
             
             <div class="mb-3">
               <label class="form-label small fw-semibold"><i class="bi bi-key me-1"></i>Mot de passe</label>
               <div class="input-group">
                 <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-lock-fill text-senegal"></i></span>
-                {{ form.mot_de_passe }}
+                <input type="password" name="mot_de_passe" id="mot_de_passe" class="form-control rounded-end-pill" placeholder="••••••••" required>
+                <button type="button" class="btn btn-outline-secondary rounded-end-pill" onclick="togglePassword()">
+                  <i class="bi bi-eye-slash" id="toggleIcon"></i>
+                </button>
               </div>
               <div class="form-text small">8 caractères minimum, incluant chiffres et lettres.</div>
+              <div class="invalid-feedback d-none" id="password-error"></div>
             </div>
             
             <div class="mb-4">
               <label class="form-label small fw-semibold"><i class="bi bi-toggles me-1"></i>Rôle</label>
               <div class="input-group">
                 <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-briefcase-fill text-senegal"></i></span>
-                {{ form.role }}
+                <select name="role" id="role" class="form-select rounded-end-pill">
+                  <option value="inspecteur">Inspecteur</option>
+                  <option value="administrateur">Administrateur</option>
+                </select>
               </div>
             </div>
             
-            <button type="submit" class="btn btn-senegal w-100 rounded-pill py-2 fw-semibold">
+            <button type="submit" id="submit-btn" class="btn btn-senegal w-100 rounded-pill py-2 fw-semibold">
               <i class="bi bi-person-plus me-2"></i>Créer le compte
             </button>
           </form>
@@ -129,12 +200,12 @@
           <h6 class="mb-0 fw-bold"><i class="bi bi-people-fill me-2 text-senegal"></i>Comptes existants</h6>
           <i class="bi bi-database text-muted"></i>
         </div>
-        <div class="list-group list-group-flush">
+        <div class="list-group list-group-flush" id="users-list">
           {% for u in utilisateurs %}
-          <div class="list-group-item user-item px-4 py-3">
+          <div class="list-group-item user-item px-4 py-3" data-user-id="{{ u.pk }}">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
               <div class="flex-grow-1">
-                <div class="fw-bold d-flex align-items-center gap-2">
+                <div class="fw-bold d-flex align-items-center gap-2 flex-wrap">
                   {{ u.first_name }} {{ u.last_name }}
                   {% if u == request.user %}
                     <span class="badge bg-primary rounded-pill px-2 py-1 fs-7">Vous</span>
@@ -151,9 +222,9 @@
                 </div>
               </div>
               {% if u != request.user %}
-              <form method="post" action="{% url 'supprimer_utilisateur' u.pk %}" onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer définitivement le compte de {{ u.first_name }} {{ u.last_name }} ?')">
+              <form method="post" action="{% url 'supprimer_utilisateur' u.pk %}" class="delete-user-form" data-username="{{ u.first_name }} {{ u.last_name }}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 delete-user-btn">
                   <i class="bi bi-trash3 me-1"></i> Supprimer
                 </button>
               </form>
@@ -163,7 +234,7 @@
             </div>
           </div>
           {% empty %}
-          <div class="text-center py-5 text-muted">
+          <div class="text-center py-5 text-muted" id="empty-users">
             <i class="bi bi-people display-4 opacity-25 d-block mb-2"></i>
             <p>Aucun utilisateur pour le moment.</p>
           </div>
@@ -173,4 +244,221 @@
     </div>
   </div>
 </div>
+
+<script>
+  // Toggle password visibility
+  function togglePassword() {
+    const passwordInput = document.getElementById('mot_de_passe');
+    const toggleIcon = document.getElementById('toggleIcon');
+    if (passwordInput.type === 'password') {
+      passwordInput.type = 'text';
+      toggleIcon.classList.remove('bi-eye-slash');
+      toggleIcon.classList.add('bi-eye');
+    } else {
+      passwordInput.type = 'password';
+      toggleIcon.classList.remove('bi-eye');
+      toggleIcon.classList.add('bi-eye-slash');
+    }
+  }
+  
+  // Afficher un message temporaire
+  function showAdminMessage(message, type = 'success') {
+    const container = document.getElementById('admin-messages');
+    const messageId = 'msg_' + Date.now();
+    const bgClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const icon = type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill';
+    
+    const html = `
+      <div id="${messageId}" class="alert ${bgClass} alert-dismissible fade show alert-slide" role="alert">
+        <i class="bi bi-${icon} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', html);
+    
+    // Disparition automatique après 4 secondes
+    setTimeout(() => {
+      const msgElement = document.getElementById(messageId);
+      if (msgElement) {
+        msgElement.style.transition = 'opacity 0.5s';
+        msgElement.style.opacity = '0';
+        setTimeout(() => {
+          if (msgElement && msgElement.parentNode) {
+            msgElement.remove();
+          }
+        }, 500);
+      }
+    }, 4000);
+  }
+  
+  // Validation du formulaire côté client
+  const form = document.getElementById('create-user-form');
+  const submitBtn = document.getElementById('submit-btn');
+  
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // Réinitialiser les erreurs
+    document.querySelectorAll('.invalid-feedback').forEach(el => {
+      el.classList.add('d-none');
+      el.textContent = '';
+    });
+    document.querySelectorAll('.form-control').forEach(el => {
+      el.classList.remove('is-invalid');
+    });
+    
+    // Récupérer les valeurs
+    const prenom = document.getElementById('prenom').value.trim();
+    const nom = document.getElementById('nom').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('mot_de_passe').value;
+    const role = document.getElementById('role').value;
+    
+    let hasError = false;
+    
+    // Validation prénom
+    if (prenom.length < 2) {
+      showFieldError('prenom', 'Le prénom doit contenir au moins 2 caractères');
+      hasError = true;
+    }
+    
+    // Validation nom
+    if (nom.length < 2) {
+      showFieldError('nom', 'Le nom doit contenir au moins 2 caractères');
+      hasError = true;
+    }
+    
+    // Validation email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showFieldError('email', 'Veuillez entrer une adresse email valide');
+      hasError = true;
+    }
+    
+    // Validation mot de passe
+    if (password.length < 8) {
+      showFieldError('mot_de_passe', 'Le mot de passe doit contenir au moins 8 caractères');
+      hasError = true;
+    }
+    
+    if (hasError) return;
+    
+    // Afficher l'état de chargement
+    submitBtn.classList.add('btn-loading');
+    const originalContent = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Création en cours...';
+    
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        showAdminMessage(data.message || 'Utilisateur créé avec succès !', 'success');
+        form.reset();
+        
+        // Recharger la liste des utilisateurs
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        if (data.errors) {
+          for (const [field, errors] of Object.entries(data.errors)) {
+            showFieldError(field, errors[0]);
+          }
+        }
+        showAdminMessage(data.message || 'Erreur lors de la création', 'danger');
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+      showAdminMessage('Erreur réseau. Veuillez réessayer.', 'danger');
+    } finally {
+      submitBtn.classList.remove('btn-loading');
+      submitBtn.innerHTML = originalContent;
+    }
+  });
+  
+  function showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    const errorDiv = document.getElementById(`${fieldId}-error`);
+    if (field && errorDiv) {
+      field.classList.add('is-invalid');
+      errorDiv.textContent = message;
+      errorDiv.classList.remove('d-none');
+    }
+  }
+  
+  // Gestion de la suppression avec confirmation
+  document.querySelectorAll('.delete-user-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      const formElem = this.closest('.delete-user-form');
+      const username = formElem.getAttribute('data-username');
+      
+      if (confirm(`⚠️ Êtes-vous sûr de vouloir supprimer définitivement le compte de ${username} ? Cette action est irréversible.`)) {
+        const originalBtnContent = this.innerHTML;
+        this.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>...';
+        this.disabled = true;
+        
+        fetch(formElem.action, {
+          method: 'POST',
+          body: new FormData(formElem),
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            showAdminMessage(data.message || 'Utilisateur supprimé', 'success');
+            // Supprimer l'élément de la liste
+            const userItem = formElem.closest('.list-group-item');
+            if (userItem) {
+              userItem.style.transition = 'opacity 0.3s';
+              userItem.style.opacity = '0';
+              setTimeout(() => {
+                userItem.remove();
+                const usersCount = document.querySelectorAll('#users-list .list-group-item').length;
+                document.getElementById('users-count').textContent = usersCount;
+                if (usersCount === 0) {
+                  document.getElementById('users-list').innerHTML = `
+                    <div class="text-center py-5 text-muted" id="empty-users">
+                      <i class="bi bi-people display-4 opacity-25 d-block mb-2"></i>
+                      <p>Aucun utilisateur pour le moment.</p>
+                    </div>
+                  `;
+                }
+              }, 300);
+            }
+          } else {
+            showAdminMessage(data.message || 'Erreur lors de la suppression', 'danger');
+          }
+        })
+        .catch(error => {
+          console.error('Erreur:', error);
+          showAdminMessage('Erreur réseau. Veuillez réessayer.', 'danger');
+        })
+        .finally(() => {
+          this.innerHTML = originalBtnContent;
+          this.disabled = false;
+        });
+      }
+    });
+  });
+  
+  // Empêcher le zoom sur les inputs mobile
+  const inputs = document.querySelectorAll('input, select');
+  inputs.forEach(input => {
+    input.addEventListener('touchstart', function() {
+      this.style.fontSize = '16px';
+    });
+  });
+</script>
 {% endblock %}

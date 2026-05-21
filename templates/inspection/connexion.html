@@ -3,14 +3,20 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
   <title>Connexion — Inspection du Travail de Louga</title>
   <meta name="theme-color" content="#006633">
   <meta name="description" content="Plateforme de gestion des fiches de contrôle - IRTSS Louga">
 
+  <!-- PWA iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Connexion">
+
   <!-- Manifest PWA -->
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="{% static 'icons/icon-192.png' %}" type="image/png">
+  <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
 
   <!-- Bootstrap LOCAL -->
   <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
@@ -30,6 +36,20 @@
       align-items: center;
       justify-content: center;
       padding: 1rem;
+      position: relative;
+    }
+
+    /* Animation de fond subtile */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" opacity="0.05"><path fill="%23006633" d="M20,20 L80,20 L80,80 L20,80 Z"/><circle cx="50" cy="50" r="10"/></svg>') repeat;
+      pointer-events: none;
+      z-index: 0;
     }
 
     .login-card {
@@ -40,6 +60,9 @@
       box-shadow: 0 25px 45px -12px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.02);
       overflow: hidden;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
+      position: relative;
+      z-index: 1;
+      backdrop-filter: blur(0px);
     }
     .login-card:hover {
       transform: translateY(-4px);
@@ -61,6 +84,10 @@
     .drapeau-vert, .drapeau-jaune, .drapeau-rouge {
       width: 45px; height: 28px; border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease;
+    }
+    .drapeau-vert:hover, .drapeau-jaune:hover, .drapeau-rouge:hover {
+      transform: scale(1.05);
     }
     .drapeau-vert  { background: #00853e; }
     .drapeau-jaune { background: #fdef42; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #00853e; font-size: 1.2rem; }
@@ -83,18 +110,33 @@
       box-shadow: 0 0 0 3px rgba(0,102,51,0.15);
     }
     .input-group-custom .input-group-text {
-      background: transparent; border: none; color: #006633; padding-left: 1.2rem;
+      background: transparent; 
+      border: none; 
+      color: #006633; 
+      padding-left: 1.2rem;
     }
     .input-group-custom input {
-      background: transparent; border: none;
-      padding: 0.8rem 0.8rem 0.8rem 0; font-weight: 500;
+      background: transparent; 
+      border: none;
+      padding: 0.8rem 0.8rem 0.8rem 0; 
+      font-weight: 500;
     }
-    .input-group-custom input:focus { box-shadow: none; background: transparent; }
+    .input-group-custom input:focus { 
+      box-shadow: none; 
+      background: transparent; 
+    }
+    .input-group-custom input::placeholder {
+      color: #adb5bd;
+      font-size: 0.85rem;
+    }
 
     .btn-login {
       background: linear-gradient(100deg, #006633, #008844);
-      border: none; border-radius: 60px;
-      padding: 0.8rem; font-weight: 600; font-size: 1rem;
+      border: none; 
+      border-radius: 60px;
+      padding: 0.8rem; 
+      font-weight: 600; 
+      font-size: 1rem;
       transition: all 0.2s;
       box-shadow: 0 4px 12px rgba(0,102,51,0.2);
     }
@@ -103,21 +145,73 @@
       background: linear-gradient(100deg, #008844, #00a050);
       box-shadow: 0 8px 20px rgba(0,102,51,0.3);
     }
+    .btn-login:active {
+      transform: translateY(0);
+    }
 
     .alert-modern {
-      border: none; border-radius: 60px;
-      background: #fff1f0; color: #b91c1c;
-      font-weight: 500; padding: 0.75rem 1.2rem;
+      border: none; 
+      border-radius: 60px;
+      background: #fff1f0; 
+      color: #b91c1c;
+      font-weight: 500; 
+      padding: 0.75rem 1.2rem;
       margin-bottom: 1.5rem;
-      display: flex; align-items: center; gap: 8px;
+      display: flex; 
+      align-items: center; 
+      gap: 8px;
+    }
+    .alert-success-custom {
+      background: #e0f2e9;
+      color: #006633;
     }
 
     hr { opacity: 0.3; margin: 1rem 0; }
 
+    /* Indicateur de chargement */
+    .btn-login.loading {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    .btn-login.loading i {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Mode hors-ligne */
+    .offline-indicator {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 40px;
+      font-size: 0.7rem;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      z-index: 1000;
+      backdrop-filter: blur(10px);
+    }
+    .offline-indicator.visible {
+      display: flex;
+    }
+
     @media (max-width: 480px) {
       .login-body { padding: 1.5rem; }
       .login-header { padding: 1.2rem; }
-      .drapeau-vert, .drapeau-jaune, .drapeau-rouge { width: 35px; height: 22px; }
+      .drapeau-vert, .drapeau-jaune, .drapeau-rouge { 
+        width: 35px; 
+        height: 22px; 
+      }
+      .drapeau-jaune { font-size: 0.9rem; }
+      .login-header h4 { font-size: 1.2rem; }
+      .btn-login { padding: 0.7rem; }
     }
   </style>
 </head>
@@ -141,6 +235,15 @@
   </div>
 
   <div class="login-body">
+    <!-- Message de succès (déconnexion par exemple) -->
+    {% if success %}
+    <div class="alert-modern alert-success-custom">
+      <i class="bi bi-check-circle-fill fs-5"></i>
+      <span>{{ success }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Message d'erreur -->
     {% if error %}
     <div class="alert-modern">
       <i class="bi bi-exclamation-triangle-fill fs-5"></i>
@@ -148,23 +251,41 @@
     </div>
     {% endif %}
 
-    <form method="post" action="{% url 'connexion' %}">
+    <!-- Message hors-ligne -->
+    <div id="offline-warning" class="alert-modern" style="background:#fff3cd; color:#856404; display:none;">
+      <i class="bi bi-wifi-off fs-5"></i>
+      <span>Connexion Internet requise pour vous authentifier.</span>
+    </div>
+
+    <form id="login-form" method="post" action="{% url 'connexion' %}">
       {% csrf_token %}
       <div class="mb-3">
-        <label class="form-label fw-semibold small text-secondary">Adresse email</label>
+        <label class="form-label fw-semibold small text-secondary">
+          <i class="bi bi-envelope-fill me-1"></i>Adresse email
+        </label>
         <div class="input-group-custom input-group">
           <span class="input-group-text"><i class="bi bi-envelope-fill"></i></span>
-          <input type="email" name="email" class="form-control" placeholder="exemple@irtss.sn" required autofocus>
+          <input type="email" name="email" id="email" class="form-control" 
+                 placeholder="exemple@irtss.sn" required autofocus
+                 autocomplete="username">
         </div>
       </div>
       <div class="mb-4">
-        <label class="form-label fw-semibold small text-secondary">Mot de passe</label>
+        <label class="form-label fw-semibold small text-secondary">
+          <i class="bi bi-lock-fill me-1"></i>Mot de passe
+        </label>
         <div class="input-group-custom input-group">
           <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-          <input type="password" name="mot_de_passe" class="form-control" placeholder="••••••••" required>
+          <input type="password" name="mot_de_passe" id="password" class="form-control" 
+                 placeholder="••••••••" required autocomplete="current-password">
+          <button type="button" class="btn btn-link text-decoration-none" 
+                  style="background:transparent; border:none; color:#006633;"
+                  onclick="togglePassword()">
+            <i class="bi bi-eye-slash" id="toggleIcon"></i>
+          </button>
         </div>
       </div>
-      <button type="submit" class="btn btn-login w-100 text-white">
+      <button type="submit" id="login-btn" class="btn btn-login w-100 text-white">
         <i class="bi bi-box-arrow-in-right me-2"></i>Se connecter
       </button>
     </form>
@@ -176,18 +297,112 @@
   </div>
 </div>
 
+<!-- Indicateur hors-ligne -->
+<div id="offline-indicator" class="offline-indicator">
+  <i class="bi bi-wifi-off"></i>
+  <span>Mode hors-ligne</span>
+</div>
+
 <!-- Bootstrap JS LOCAL -->
 <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
 <script src="{% static 'js/app.js' %}"></script>
 
 <script>
+  // Toggle password visibility
+  function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    const toggleIcon = document.getElementById('toggleIcon');
+    if (passwordInput.type === 'password') {
+      passwordInput.type = 'text';
+      toggleIcon.classList.remove('bi-eye-slash');
+      toggleIcon.classList.add('bi-eye');
+    } else {
+      passwordInput.type = 'password';
+      toggleIcon.classList.remove('bi-eye');
+      toggleIcon.classList.add('bi-eye-slash');
+    }
+  }
+
+  // Gestion du statut réseau
+  const offlineWarning = document.getElementById('offline-warning');
+  const offlineIndicator = document.getElementById('offline-indicator');
+  const loginBtn = document.getElementById('login-btn');
+  const loginForm = document.getElementById('login-form');
+
+  function updateNetworkStatus() {
+    if (!navigator.onLine) {
+      if (offlineWarning) offlineWarning.style.display = 'flex';
+      if (offlineIndicator) offlineIndicator.classList.add('visible');
+      if (loginBtn) {
+        loginBtn.disabled = true;
+        loginBtn.style.opacity = '0.5';
+        loginBtn.title = 'Connexion Internet requise';
+      }
+    } else {
+      if (offlineWarning) offlineWarning.style.display = 'none';
+      if (offlineIndicator) offlineIndicator.classList.remove('visible');
+      if (loginBtn) {
+        loginBtn.disabled = false;
+        loginBtn.style.opacity = '1';
+        loginBtn.title = '';
+      }
+    }
+  }
+
+  // Animation de chargement du bouton
+  loginForm.addEventListener('submit', function(e) {
+    if (!navigator.onLine) {
+      e.preventDefault();
+      alert('Veuillez vérifier votre connexion Internet pour vous connecter.');
+      return false;
+    }
+    
+    // Ajouter l'animation de chargement
+    loginBtn.classList.add('loading');
+    loginBtn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Connexion en cours...';
+  });
+
+  // Réinitialiser le bouton si la page est rechargée (erreur)
+  window.addEventListener('pageshow', function() {
+    loginBtn.classList.remove('loading');
+    loginBtn.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>Se connecter';
+  });
+
+  // Écouter les changements de réseau
+  window.addEventListener('load', updateNetworkStatus);
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+
+  // Enregistrement du Service Worker (même sur la page de login)
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('/sw.js', { scope: '/' })
-        .then(reg => console.log('[SW] Enregistre :', reg.scope))
-        .catch(err => console.error('[SW] Erreur :', err));
+        .then(function(reg) {
+          console.log('[SW] Enregistré — scope :', reg.scope);
+        })
+        .catch(function(error) {
+          console.error('[SW] Erreur :', error);
+        });
     });
   }
+
+  // Sauvegarder l'email saisi dans localStorage (optionnel)
+  const savedEmail = localStorage.getItem('saved_email');
+  if (savedEmail && document.getElementById('email')) {
+    document.getElementById('email').value = savedEmail;
+  }
+  
+  document.getElementById('email')?.addEventListener('change', function() {
+    localStorage.setItem('saved_email', this.value);
+  });
+
+  // Empêcher le zoom sur les inputs sur mobile
+  const inputs = document.querySelectorAll('input');
+  inputs.forEach(input => {
+    input.addEventListener('touchstart', function() {
+      this.style.fontSize = '16px';
+    });
+  });
 </script>
 
 </body>

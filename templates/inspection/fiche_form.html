@@ -7,6 +7,7 @@
 
 {% block extra_css %}
 <style>
+  /* ===== BASE STYLES ===== */
   .etape-section { display: none; }
   .etape-section.active { display: block; }
 
@@ -115,6 +116,130 @@
     color: #856404;
   }
   .offline-notice.visible { display: flex; }
+
+  /* ===== OPTIMISATIONS MOBILES ===== */
+  @media (max-width: 768px) {
+    .container-fluid {
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+    
+    .table-responsive {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .table-modern input[type="number"], 
+    .table-modern select {
+      min-width: 65px;
+    }
+    
+    .section-card {
+      margin-bottom: 1rem !important;
+    }
+    
+    .card-body {
+      padding: 1rem !important;
+    }
+    
+    /* Agrandir les zones cliquables */
+    .step-indicator {
+      width: 40px;
+      height: 40px;
+      font-size: 1rem;
+    }
+    
+    /* Inputs plus grands pour le tactile */
+    .form-control, .form-select, input[type="date"] {
+      min-height: 48px;
+      font-size: 16px;
+    }
+    
+    /* Boutons plus grands */
+    .btn-nav {
+      padding: 0.75rem 1.2rem;
+      font-size: 1rem;
+      min-height: 48px;
+    }
+    
+    /* Checkboxes plus grandes */
+    .form-check-input {
+      width: 1.2rem;
+      height: 1.2rem;
+      margin-top: 0;
+    }
+    
+    /* Espacement pour défiler facilement */
+    .etape-section {
+      padding-bottom: 80px;
+    }
+    
+    /* Barre de progression plus visible */
+    .progress {
+      height: 8px !important;
+    }
+    
+    /* Boutons de navigation collés en bas */
+    .d-flex.flex-wrap.gap-3.justify-content-between {
+      position: sticky;
+      bottom: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 50px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 100;
+      margin-bottom: 20px !important;
+    }
+  }
+
+  /* Toast notification */
+  #mobile-toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #006633;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    z-index: 9999;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #mobile-toast.danger { background: #dc3545; }
+  #mobile-toast.warning { background: #ffc107; color: #000; }
+  #mobile-toast.info { background: #17a2b8; }
+
+  /* FAB Button */
+  #fab-draft {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    background: #006633;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  @media (max-width: 768px) {
+    #fab-draft { display: flex; }
+  }
+  #fab-draft.hidden {
+    opacity: 0;
+    transform: scale(0);
+  }
 </style>
 {% endblock %}
 
@@ -341,40 +466,43 @@
               <tbody>
                 <tr><td class="text-start">Au temps</td>
                   <td><input type="checkbox" name="remuneration_au_temps_1" class="form-check-input"></td>
-                  <td><input type="checkbox" name="remuneration_au_temps_2" class="form-check-input"></td></tr>
+                  <td><input type="checkbox" name="remuneration_au_temps_2" class="form-check-input"></td>
+                </tr>
                 <tr><td class="text-start">À la pièce</td>
                   <td><input type="checkbox" name="remuneration_a_la_piece_1" class="form-check-input"></td>
-                  <td><input type="checkbox" name="remuneration_a_la_piece_2" class="form-check-input"></td></tr>
+                  <td><input type="checkbox" name="remuneration_a_la_piece_2" class="form-check-input"></td>
+                </tr>
                 <tr><td class="text-start">Les deux</td>
                   <td><input type="checkbox" name="remuneration_les_deux_1" class="form-check-input"></td>
-                  <td><input type="checkbox" name="remuneration_les_deux_2" class="form-check-input"></td></tr>
+                  <td><input type="checkbox" name="remuneration_les_deux_2" class="form-check-input"></td>
+                </tr>
               </tbody>
               <thead><tr><th class="text-start">Questions</th><th>1</th><th>2</th></tr></thead>
               <tbody>
-                {% for label, n1, n2 in sections3_questions %}
-                <tr><td class="text-start">{{ label }}</td>
-                  <td>{% include 'inspection/partials/oui_non.html' with name=n1 %}</td>
-                  <td>{% include 'inspection/partials/oui_non.html' with name=n2 %}</td></tr>
-                {% empty %}
                 <tr><td class="text-start">Salaires de base catégorielle conformes ?</td>
                   <td><select name="salaires_conformes_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="salaires_conformes_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="salaires_conformes_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Remise de bulletins et paiement réglementaires ?</td>
                   <td><select name="bulletins_paie_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="bulletins_paie_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="bulletins_paie_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Heures supplémentaires majorées ?</td>
                   <td><select name="heures_sup_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="heures_sup_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="heures_sup_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Prime d'ancienneté ?</td>
                   <td><select name="prime_anciennete_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="prime_anciennete_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="prime_anciennete_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Jours fériés travaillés majorés ?</td>
                   <td><select name="jours_feries_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="jours_feries_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="jours_feries_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Indemnités de transport versées ?</td>
                   <td><select name="indemnites_transport_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="indemnites_transport_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
-                {% endfor %}
+                  <td><select name="indemnites_transport_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -394,27 +522,26 @@
             <table class="table table-modern text-center">
               <thead><tr><th class="text-start">Question</th><th>1</th><th>2</th></tr></thead>
               <tbody>
-                {% for label, n1, n2 in sections4_questions %}
-                <tr><td class="text-start">{{ label }}</td>
-                  <td><select name="{{ n1 }}" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="{{ n2 }}" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
-                {% empty %}
                 <tr><td class="text-start">Horaires affichés ?</td>
                   <td><select name="horaires_affiches_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="horaires_affiches_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="horaires_affiches_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Aménagement 8h/jr – 5jrs ?</td>
                   <td><select name="amenagement_8h_5j_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="amenagement_8h_5j_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="amenagement_8h_5j_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Aménagement 6h40/jr – 6jrs ?</td>
                   <td><select name="amenagement_6h40_6j_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="amenagement_6h40_6j_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="amenagement_6h40_6j_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Respect pause quotidienne ?</td>
                   <td><select name="pause_quotidienne_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="pause_quotidienne_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="pause_quotidienne_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Respect repos hebdomadaire ?</td>
                   <td><select name="repos_hebdomadaire_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="repos_hebdomadaire_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
-                {% endfor %}
+                  <td><select name="repos_hebdomadaire_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -437,25 +564,32 @@
               <tbody>
                 <tr><td class="text-start">Déclaration de tous les travailleurs (CSS) ?</td>
                   <td><select name="declaration_css_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="declaration_css_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="declaration_css_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Adhésion aux IPS – CSS ?</td>
                   <td><select name="adhesion_css_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="adhesion_css_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="adhesion_css_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Adhésion aux IPS – IPRES ?</td>
                   <td><select name="adhesion_ipres_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="adhesion_ipres_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="adhesion_ipres_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Adhésion aux IPS – IPM ?</td>
                   <td><select name="adhesion_ipm_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="adhesion_ipm_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="adhesion_ipm_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Cotisations CSS à jour ?</td>
                   <td><select name="cotisations_css_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="cotisations_css_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="cotisations_css_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Cotisations IPRES à jour ?</td>
                   <td><select name="cotisations_ipres_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="cotisations_ipres_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="cotisations_ipres_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Cotisations IPM à jour ?</td>
                   <td><select name="cotisations_ipm_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="cotisations_ipm_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="cotisations_ipm_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -467,34 +601,44 @@
               <tbody>
                 <tr><td class="text-start">Délégués du personnel (DP) ?</td>
                   <td><select name="delegues_personnel_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="delegues_personnel_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="delegues_personnel_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Règlement intérieur ?</td>
                   <td><select name="reglement_interieur_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="reglement_interieur_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="reglement_interieur_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Comité HST ?</td>
                   <td><select name="comite_hst_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="comite_hst_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="comite_hst_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Visite médicale annuelle ?</td>
                   <td><select name="visite_medicale_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="visite_medicale_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="visite_medicale_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Extincteurs à jour ?</td>
                   <td><select name="extincteurs_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="extincteurs_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="extincteurs_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">EPI disponibles ?</td>
                   <td><select name="epi_disponible_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="epi_disponible_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="epi_disponible_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Port effectif des EPI ?</td>
                   <td><select name="epi_effectif_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="epi_effectif_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="epi_effectif_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Toilettes & WC suffisants ?</td>
                   <td><select name="toilettes_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="toilettes_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="toilettes_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">Congés payés avec allocations ?</td>
                   <td><select name="conges_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="conges_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="conges_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
                 <tr><td class="text-start">DASMO / Bilan social ?</td>
                   <td><select name="dasmo_bs_1" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
-                  <td><select name="dasmo_bs_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td></tr>
+                  <td><select name="dasmo_bs_2" class="form-select form-select-sm"><option value="">—</option><option>Oui</option><option>Non</option></select></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -594,13 +738,21 @@
                 class="btn btn-success btn-nav"
                 style="display:none;"
                 onclick="soumettreFormulaire('soumis')">
-          <i class="bi bi-check-circle"></i> Terminer la fiche
+          <i class="bi bi-check-circle"></i> Terminer
         </button>
       </div>
     </div>
 
   </form>
 </div>
+
+<!-- FAB Button pour sauvegarde rapide -->
+<button id="fab-draft">
+  <i class="bi bi-floppy" style="font-size: 1.5rem;"></i>
+</button>
+
+<!-- Toast notification -->
+<div id="mobile-toast"></div>
 {% endblock %}
 
 {% block extra_js %}
@@ -618,7 +770,11 @@ const TITRES = [
 
 let etapeCourante = 1;
 const TOTAL_ETAPES = 6;
+let autoSaveTimer = null;
+let editingPk = null;
+let editingLocalId = null;
 
+// ===== NAVIGATION =====
 function allerEtape(n) {
   document.getElementById('section-' + etapeCourante).classList.remove('active');
   document.getElementById('step-' + etapeCourante).classList.remove('active');
@@ -649,6 +805,7 @@ function changerEtape(direction) {
   if (nouvelle >= 1 && nouvelle <= TOTAL_ETAPES) allerEtape(nouvelle);
 }
 
+// ===== CALCULS AUTO =====
 function calculerTotaux() {
   const v = (n) => parseInt(document.querySelector('[name="' + n + '"]')?.value) || 0;
   const cH = v('cadres_hommes'), cF = v('cadres_femmes');
@@ -666,6 +823,18 @@ function calculerTotaux() {
 document.addEventListener('input', calculerTotaux);
 document.addEventListener('DOMContentLoaded', calculerTotaux);
 
+// ===== NOTIFICATION =====
+function showToast(message, type = 'success') {
+  const toast = document.getElementById('mobile-toast');
+  toast.textContent = message;
+  toast.className = type;
+  toast.style.opacity = '1';
+  setTimeout(() => {
+    toast.style.opacity = '0';
+  }, 2000);
+}
+
+// ===== OFFLINE NOTICE =====
 function majNoticeOffline() {
   const notice = document.getElementById('offline-notice');
   if (!notice) return;
@@ -679,6 +848,7 @@ window.addEventListener('online', majNoticeOffline);
 window.addEventListener('offline', majNoticeOffline);
 document.addEventListener('DOMContentLoaded', majNoticeOffline);
 
+// ===== COLLECTE DONNEES =====
 function collecterDonnees(statut) {
   const form = document.getElementById('form-fiche');
   const data = { statut: statut };
@@ -696,46 +866,36 @@ function collecterDonnees(statut) {
   return data;
 }
 
-// ✅ CORRIGÉ — attend le commit IndexedDB avant de rediriger
-async function soumettreFormulaire(statut) {
+// ===== SAUVEGARDE AUTO =====
+function autoSaveBrouillon() {
   const entreprise = document.querySelector('[name="entreprise"]').value.trim();
   const date_controle = document.querySelector('[name="date_controle"]').value.trim();
-
-  if (!entreprise || !date_controle) {
-    allerEtape(1);
-    afficherNotification('Veuillez remplir le nom de l\'entreprise et la date du contrôle.', 'warning');
-    return;
-  }
-
-  const donnees = collecterDonnees(statut);
-
-  if (typeof editingLocalId !== 'undefined' && editingLocalId) {
-    donnees.local_id = editingLocalId;
-  }
-  if (typeof editingPk !== 'undefined' && editingPk) {
-    donnees.server_pk = editingPk;
-  }
-
+  if (!entreprise || !date_controle) return;
+  
+  const donnees = collecterDonnees('brouillon');
   if (navigator.onLine) {
-    await envoyerADjango(donnees);
+    envoyerADjango(donnees, true);
   } else {
-    // ✅ Attendre que IndexedDB ait FINI d'écrire avant de rediriger
-    const local_id = await sauvegarderLocalement(donnees);
-    if (local_id) {
-      afficherNotification('Fiche sauvegardée ! Redirection...', 'success');
-      // ✅ Délai court — juste pour laisser le toast s'afficher
-      setTimeout(() => { window.location.href = '/fiches/'; }, 800);
-    } else {
-      afficherNotification('Erreur lors de la sauvegarde locale.', 'danger');
-    }
+    sauvegarderLocalement(donnees).then(() => {
+      showToast('Brouillon sauvegardé localement', 'info');
+    });
   }
 }
 
-async function envoyerADjango(donnees) {
+// Activation de la sauvegarde auto
+document.querySelectorAll('.form-control, .form-select, input, textarea').forEach(field => {
+  field.addEventListener('input', () => {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(autoSaveBrouillon, 3000);
+  });
+});
+
+// ===== ENVOI VERS DJANGO =====
+async function envoyerADjango(donnees, isAutoSave = false) {
   const csrfToken = document.cookie.split('; ')
     .find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
 
-  const url = (typeof editingPk !== 'undefined' && editingPk)
+  const url = (editingPk)
     ? ('/api/fiche/' + editingPk + '/modifier/')
     : '/api/fiche/creer/';
 
@@ -751,35 +911,99 @@ async function envoyerADjango(donnees) {
 
     if (resp.ok) {
       const data = await resp.json();
-      if (typeof editingLocalId !== 'undefined' && editingLocalId && typeof deleteLocalFiche === 'function') {
+      if (editingLocalId && typeof deleteLocalFiche === 'function') {
         await deleteLocalFiche(editingLocalId);
       }
-      afficherNotification('Fiche enregistrée avec succès !', 'success');
-      setTimeout(() => { window.location.href = '/fiches/' + data.id + '/'; }, 1500);
+      if (!isAutoSave) {
+        showToast('Fiche enregistrée avec succès !', 'success');
+        setTimeout(() => { window.location.href = '/fiches/' + data.id + '/'; }, 1500);
+      }
     } else {
-      const err = await resp.json();
-      afficherNotification('Erreur : ' + (err.error || 'Problème serveur'), 'danger');
+      if (!isAutoSave) showToast('Erreur lors de l\'enregistrement', 'danger');
     }
   } catch (e) {
-    // Fallback hors ligne si fetch échoue
     const local_id = await sauvegarderLocalement(donnees);
-    if (local_id) {
-      afficherNotification('Connexion perdue. Fiche sauvegardée localement.', 'warning');
+    if (local_id && !isAutoSave) {
+      showToast('Connexion perdue. Fiche sauvegardée localement.', 'warning');
       setTimeout(() => { window.location.href = '/fiches/'; }, 800);
-    } else {
-      afficherNotification('Erreur lors de la sauvegarde locale.', 'danger');
     }
   }
 }
 
-// Pré-remplissage en mode modification
-let editingPk = null;
-let editingLocalId = null;
-{% if mode == 'modification' %}
-const ficheDataFromServer = {{ fiche_json|safe }};
-editingPk = {{ fiche.pk }};
-{% endif %}
+// ===== SOUMISSION PRINCIPALE =====
+async function soumettreFormulaire(statut) {
+  const entreprise = document.querySelector('[name="entreprise"]').value.trim();
+  const date_controle = document.querySelector('[name="date_controle"]').value.trim();
 
+  if (!entreprise || !date_controle) {
+    allerEtape(1);
+    showToast('Veuillez remplir le nom de l\'entreprise et la date du contrôle.', 'warning');
+    return;
+  }
+
+  const donnees = collecterDonnees(statut);
+
+  if (editingLocalId) donnees.local_id = editingLocalId;
+  if (editingPk) donnees.server_pk = editingPk;
+
+  if (navigator.onLine) {
+    await envoyerADjango(donnees);
+  } else {
+    const local_id = await sauvegarderLocalement(donnees);
+    if (local_id) {
+      showToast('Fiche sauvegardée localement !', 'success');
+      setTimeout(() => { window.location.href = '/fiches/'; }, 800);
+    } else {
+      showToast('Erreur lors de la sauvegarde locale.', 'danger');
+    }
+  }
+}
+
+// ===== SWIPE POUR MOBILE =====
+let touchStartX = 0;
+let touchEndX = 0;
+
+document.addEventListener('touchstart', (e) => {
+  touchStartX = e.changedTouches[0].screenX;
+}, false);
+
+document.addEventListener('touchend', (e) => {
+  touchEndX = e.changedTouches[0].screenX;
+  const swipeDistance = touchEndX - touchStartX;
+  
+  const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT';
+  if (!isInput && Math.abs(swipeDistance) > 50) {
+    if (swipeDistance > 0 && etapeCourante > 1) {
+      changerEtape(-1);
+      showToast(TITRES[etapeCourante - 2], 'info');
+    } else if (swipeDistance < 0 && etapeCourante < TOTAL_ETAPES) {
+      changerEtape(1);
+      showToast(TITRES[etapeCourante], 'info');
+    }
+  }
+});
+
+// ===== FAB BUTTON =====
+document.addEventListener('DOMContentLoaded', () => {
+  const fab = document.getElementById('fab-draft');
+  let lastScroll = 0;
+  
+  fab.addEventListener('click', () => {
+    soumettreFormulaire('brouillon');
+  });
+  
+  window.addEventListener('scroll', () => {
+    const currentScroll = window.pageYOffset;
+    if (currentScroll > lastScroll && currentScroll > 100) {
+      fab.classList.add('hidden');
+    } else {
+      fab.classList.remove('hidden');
+    }
+    lastScroll = currentScroll;
+  });
+});
+
+// ===== REMPLISSAGE DONNEES (MODIFICATION) =====
 function remplirFormulaire(data) {
   try {
     Object.keys(data).forEach(k => {
@@ -793,38 +1017,33 @@ function remplirFormulaire(data) {
       }
     });
     calculerTotaux();
-    majNoticeOffline();
   } catch (e) {
     console.warn('Erreur remplissage formulaire:', e);
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof ficheDataFromServer !== 'undefined' && ficheDataFromServer) {
-    remplirFormulaire(ficheDataFromServer);
-  }
+// Données serveur
+{% if mode == 'modification' %}
+const ficheDataFromServer = {{ fiche_json|safe }};
+editingPk = {{ fiche.pk }};
+document.addEventListener('DOMContentLoaded', () => remplirFormulaire(ficheDataFromServer));
+{% endif %}
 
-  // Charger la fiche locale si local_id en paramètre URL
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('local_id')) {
-      const lid = params.get('local_id');
-      if (lid && typeof getFicheByLocalId === 'function') {
-        getFicheByLocalId(lid).then(obj => {
-          if (obj) {
-            editingLocalId = obj.local_id;
-            if (obj.server_pk) {
-              editingPk = obj.server_pk;
-            }
-            remplirFormulaire(obj);
-            if (!document.title.includes('Modifier')) {
-              document.title = 'Modifier la fiche — IRTSS Louga';
-            }
-          }
-        });
-      }
+// Chargement fiche locale via URL
+try {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('local_id')) {
+    const lid = params.get('local_id');
+    if (lid && typeof getFicheByLocalId === 'function') {
+      getFicheByLocalId(lid).then(obj => {
+        if (obj) {
+          editingLocalId = obj.local_id;
+          if (obj.server_pk) editingPk = obj.server_pk;
+          remplirFormulaire(obj);
+        }
+      });
     }
-  } catch (e) { /* ignore */ }
-});
+  }
+} catch (e) { /* ignore */ }
 </script>
 {% endblock %}

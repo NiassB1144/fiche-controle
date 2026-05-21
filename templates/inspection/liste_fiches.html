@@ -59,6 +59,99 @@
     font-size: 0.75rem;
     font-weight: 500;
   }
+  
+  /* Carte fiche locale */
+  .fiche-card.local-card {
+    border-left-color: #ffc107;
+    background: #fffef7;
+  }
+  .local-badge {
+    background: #ffc107;
+    color: #856404;
+    border-radius: 40px;
+    padding: 0.2rem 0.7rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sync-status {
+    font-size: 0.7rem;
+    color: #856404;
+  }
+  
+  /* Optimisations mobiles */
+  @media (max-width: 768px) {
+    .fiche-card {
+      border-radius: 16px;
+    }
+    .btn-icon span {
+      display: none;
+    }
+    .btn-icon {
+      padding: 0.35rem 0.65rem;
+    }
+    .filter-btn {
+      padding: 0.3rem 0.8rem;
+      font-size: 0.8rem;
+    }
+    .fiche-badge {
+      padding: 0.25rem 0.7rem;
+      font-size: 0.65rem;
+    }
+  }
+  
+  /* Animation de chargement */
+  .loader-local {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+  .loader-local .spinner-border {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: #006633;
+  }
+  
+  /* Bouton sync flottant */
+  .fab-sync {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    background: #006633;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  @media (max-width: 768px) {
+    .fab-sync { display: flex; }
+  }
+  .fab-sync.hidden {
+    opacity: 0;
+    transform: scale(0);
+  }
+  .fab-sync i {
+    font-size: 1.5rem;
+  }
+  .fab-sync.syncing {
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
 </style>
 {% endblock %}
 
@@ -73,7 +166,11 @@
         Mes fiches de contrôle
       </h5>
       <div class="compteur-filtre mt-2">
-        <i class="bi bi-file-text me-1"></i> {{ fiches|length }} fiche{{ fiches|pluralize }}
+        <i class="bi bi-file-text me-1"></i> 
+        <span id="total-fiches-count">{{ fiches|length }}</span> fiche{{ fiches|length|pluralize }}
+        <span id="local-count-badge" class="ms-2" style="display:none;">
+          <i class="bi bi-hdd"></i> +<span id="local-count">0</span> locale(s)
+        </span>
       </div>
     </div>
     <a href="{% url 'nouvelle_fiche' %}" class="btn btn-senegal-soft shadow-sm">
@@ -99,94 +196,350 @@
 
   <!-- Liste des fiches -->
   <!-- Fiches locales non synchronisées (IndexedDB) -->
-  <div id="local-fiches-section" class="mb-4">
-    <h6 class="fw-semibold mb-2"><i class="bi bi-hdd-network me-1"></i>Fiches locales (hors-ligne)</h6>
+  <div id="local-fiches-section" class="mb-4" style="display:none;">
+    <h6 class="fw-semibold mb-2">
+      <i class="bi bi-hdd-network me-1"></i>
+      Fiches locales (hors-ligne)
+      <span class="badge bg-warning text-dark ms-2" id="local-count-header">0</span>
+    </h6>
     <div id="local-fiches-list" class="mb-3"></div>
   </div>
 
-  {% if fiches %}
-    {% for fiche in fiches %}
-    <div class="fiche-card p-3">
-      <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-        <!-- Infos principales -->
-        <div class="flex-grow-1">
-          <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-            <h6 class="fw-bold mb-0">
-              <i class="bi bi-building me-1 text-secondary"></i>
-              {{ fiche.entreprise }}
-            </h6>
-            <span class="fiche-badge {% if fiche.statut == 'soumis' %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
-              {% if fiche.statut == 'soumis' %}
-                <i class="bi bi-check-lg"></i> Soumis
-              {% else %}
-                <i class="bi bi-pencil"></i> Brouillon
-              {% endif %}
-            </span>
-          </div>
-          <div class="small text-muted d-flex flex-wrap gap-x-3 gap-y-1">
-            <span><i class="bi bi-geo-alt me-1"></i> {{ fiche.lieu|default:"Lieu non renseigné" }}</span>
-            <span><i class="bi bi-calendar-event me-1"></i> {{ fiche.date_controle|date:"d/m/Y" }}</span>
-            {% if user.is_staff %}
-            <span><i class="bi bi-person-badge me-1"></i> {{ fiche.inspecteur.first_name }} {{ fiche.inspecteur.last_name }}</span>
-            {% endif %}
+  <!-- Fiches serveur -->
+  <div id="server-fiches-section">
+    <h6 class="fw-semibold mb-2">
+      <i class="bi bi-cloud me-1"></i>
+      Fiches synchronisées
+      <span class="badge bg-secondary ms-2" id="server-count">{{ fiches|length }}</span>
+    </h6>
+    <div id="server-fiches-list">
+      {% if fiches %}
+        {% for fiche in fiches %}
+        <div class="fiche-card p-3" data-fiche-id="{{ fiche.pk }}" data-statut="{{ fiche.statut }}">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <!-- Infos principales -->
+            <div class="flex-grow-1">
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <h6 class="fw-bold mb-0">
+                  <i class="bi bi-building me-1 text-secondary"></i>
+                  {{ fiche.entreprise }}
+                </h6>
+                <span class="fiche-badge {% if fiche.statut == 'soumis' %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
+                  {% if fiche.statut == 'soumis' %}
+                    <i class="bi bi-check-lg"></i> Soumis
+                  {% else %}
+                    <i class="bi bi-pencil"></i> Brouillon
+                  {% endif %}
+                </span>
+              </div>
+              <div class="small text-muted d-flex flex-wrap gap-x-3 gap-y-1">
+                <span><i class="bi bi-geo-alt me-1"></i> {{ fiche.lieu|default:"Lieu non renseigné" }}</span>
+                <span><i class="bi bi-calendar-event me-1"></i> {{ fiche.date_controle|date:"d/m/Y" }}</span>
+                {% if user.is_staff %}
+                <span><i class="bi bi-person-badge me-1"></i> {{ fiche.inspecteur.first_name }} {{ fiche.inspecteur.last_name }}</span>
+                {% endif %}
+              </div>
+            </div>
+            <!-- Actions -->
+            <div class="d-flex gap-2">
+              <a href="{% url 'detail_fiche' fiche.pk %}" class="btn btn-outline-secondary btn-icon" title="Voir">
+                <i class="bi bi-eye"></i> <span class="d-none d-sm-inline">Voir</span>
+              </a>
+              <a href="{% url 'modifier_fiche' fiche.pk %}" class="btn btn-outline-primary btn-icon" title="Modifier">
+                <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
+              </a>
+              <a href="{% url 'supprimer_fiche' fiche.pk %}" class="btn btn-outline-danger btn-icon" title="Supprimer" onclick="return confirm('Supprimer définitivement cette fiche ?')">
+                <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
+              </a>
+            </div>
           </div>
         </div>
-        <!-- Actions : voir, modifier, supprimer (redirection vers page de confirmation) -->
-        <div class="d-flex gap-2">
-          <a href="{% url 'detail_fiche' fiche.pk %}" class="btn btn-outline-secondary btn-icon" title="Voir">
-            <i class="bi bi-eye"></i> <span class="d-none d-sm-inline">Voir</span>
-          </a>
-          <a href="{% url 'modifier_fiche' fiche.pk %}" class="btn btn-outline-primary btn-icon" title="Modifier">
-            <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
-          </a>
-          <!-- Redirection vers la page de confirmation de suppression -->
-          <a href="{% url 'supprimer_fiche' fiche.pk %}" class="btn btn-outline-danger btn-icon" title="Supprimer">
-            <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
-          </a>
+        {% endfor %}
+      {% else %}
+        <div class="text-center py-4 text-muted bg-white rounded-4 p-4">
+          <i class="bi bi-inbox display-1 opacity-25 d-block mb-3"></i>
+          <p class="mb-0">Aucune fiche synchronisée</p>
         </div>
-      </div>
+      {% endif %}
     </div>
-    {% endfor %}
-  {% else %}
-    <!-- État vide -->
-    <div class="text-center py-5 text-muted bg-white rounded-4 shadow-sm p-5">
-      <i class="bi bi-inbox display-1 opacity-25 d-block mb-3"></i>
-      <h5 class="fw-light">Aucune fiche trouvée</h5>
-      <p class="mb-3">
-        {% if statut_filtre %}
-          Aucune fiche avec le statut « {{ statut_filtre }} ».
-        {% else %}
-          Vous n’avez encore créé aucune fiche de contrôle.
-        {% endif %}
-      </p>
-      <a href="{% url 'nouvelle_fiche' %}" class="btn btn-senegal-soft mt-2">
-        <i class="bi bi-plus-circle me-1"></i> Créer ma première fiche
-      </a>
-    </div>
-  {% endif %}
+  </div>
+
+  <!-- État vide global -->
+  <div id="empty-state" class="text-center py-5 text-muted bg-white rounded-4 shadow-sm p-5" style="display:none;">
+    <i class="bi bi-inbox display-1 opacity-25 d-block mb-3"></i>
+    <h5 class="fw-light">Aucune fiche trouvée</h5>
+    <p class="mb-3">
+      {% if statut_filtre %}
+        Aucune fiche avec le statut « {{ statut_filtre }} ».
+      {% else %}
+        Vous n'avez encore créé aucune fiche de contrôle.
+      {% endif %}
+    </p>
+    <a href="{% url 'nouvelle_fiche' %}" class="btn btn-senegal-soft mt-2">
+      <i class="bi bi-plus-circle me-1"></i> Créer ma première fiche
+    </a>
+  </div>
 </div>
 
-<!-- Script pour charger et afficher les fiches locales (IndexedDB) -->
+<!-- Bouton flottant de synchronisation -->
+<button id="fab-sync" class="fab-sync" title="Synchroniser">
+  <i class="bi bi-arrow-repeat"></i>
+</button>
+
 <script>
-  // Attendre que app.js soit complètement chargé (window.FicheApp disponible)
-  function attendreEtAfficherFiches(tentatives = 0) {
-    if (window.FicheApp && typeof window.FicheApp.renderLocalFiches === 'function') {
-      console.log('[Liste] 🔄 Chargement des fiches locales...');
-      window.FicheApp.renderLocalFiches()
-        .then(() => console.log('[Liste] ✓ Fiches locales affichées'))
-        .catch(err => console.error('[Liste] ❌ Erreur:', err));
-    } else if (tentatives < 100) {
-      // Réessayer dans 50ms (max 5 secondes)
-      setTimeout(() => attendreEtAfficherFiches(tentatives + 1), 50);
+  // Fonction pour afficher/masquer l'état vide
+  function updateEmptyState() {
+    const serverItems = document.querySelectorAll('#server-fiches-list .fiche-card').length;
+    const localItems = document.querySelectorAll('#local-fiches-list .fiche-card').length;
+    const emptyState = document.getElementById('empty-state');
+    const serverSection = document.getElementById('server-fiches-section');
+    const localSection = document.getElementById('local-fiches-section');
+    
+    if (serverItems === 0 && localItems === 0) {
+      emptyState.style.display = 'block';
+      serverSection.style.display = 'none';
+      if (localSection) localSection.style.display = 'none';
     } else {
-      console.warn('[Liste] ⚠️ FicheApp.renderLocalFiches non disponible après 5s');
+      emptyState.style.display = 'none';
+      serverSection.style.display = 'block';
+      if (localSection && localItems > 0) localSection.style.display = 'block';
+      else if (localSection) localSection.style.display = 'none';
+    }
+  }
+
+  // Fonction pour afficher les fiches locales depuis IndexedDB
+  async function afficherFichesLocales() {
+    if (!window.FicheApp || typeof window.FicheApp.getAllFiches !== 'function') {
+      console.log('[Liste] FicheApp non disponible, réessai dans 500ms...');
+      setTimeout(afficherFichesLocales, 500);
+      return;
+    }
+    
+    try {
+      const fichesLocales = await window.FicheApp.getAllFiches();
+      const container = document.getElementById('local-fiches-list');
+      const section = document.getElementById('local-fiches-section');
+      const localCountSpan = document.getElementById('local-count');
+      const localCountHeader = document.getElementById('local-count-header');
+      const localCountBadge = document.getElementById('local-count-badge');
+      
+      if (!container) return;
+      
+      if (fichesLocales && fichesLocales.length > 0) {
+        container.innerHTML = '';
+        let displayCount = 0;
+        
+        for (const fiche of fichesLocales) {
+          // Filtrer selon le statut si besoin
+          const urlParams = new URLSearchParams(window.location.search);
+          const statutFiltre = urlParams.get('statut');
+          if (statutFiltre && fiche.statut !== statutFiltre) continue;
+          
+          displayCount++;
+          
+          const card = document.createElement('div');
+          card.className = 'fiche-card local-card p-3';
+          card.setAttribute('data-local-id', fiche.local_id);
+          card.innerHTML = `
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+              <div class="flex-grow-1">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <h6 class="fw-bold mb-0">
+                    <i class="bi bi-building me-1 text-secondary"></i>
+                    ${escapeHtml(fiche.entreprise || 'Sans nom')}
+                  </h6>
+                  <span class="local-badge">
+                    <i class="bi bi-hdd"></i> Hors-ligne
+                  </span>
+                  <span class="fiche-badge ${fiche.statut === 'soumis' ? 'bg-success text-white' : 'bg-warning text-dark'}">
+                    ${fiche.statut === 'soumis' ? '<i class="bi bi-check-lg"></i> Soumis' : '<i class="bi bi-pencil"></i> Brouillon'}
+                  </span>
+                </div>
+                <div class="small text-muted d-flex flex-wrap gap-x-3 gap-y-1">
+                  <span><i class="bi bi-geo-alt me-1"></i> ${escapeHtml(fiche.lieu || 'Lieu non renseigné')}</span>
+                  <span><i class="bi bi-calendar-event me-1"></i> ${fiche.date_controle || 'Date non renseignée'}</span>
+                </div>
+                <div class="sync-status mt-1">
+                  <i class="bi bi-info-circle"></i> En attente de synchronisation
+                </div>
+              </div>
+              <div class="d-flex gap-2">
+                <a href="/fiches/creer/?local_id=${fiche.local_id}" class="btn btn-outline-primary btn-icon" title="Modifier">
+                  <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
+                </a>
+                <button onclick="supprimerFicheLocale('${fiche.local_id}')" class="btn btn-outline-danger btn-icon" title="Supprimer">
+                  <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
+                </button>
+              </div>
+            </div>
+          `;
+          container.appendChild(card);
+        }
+        
+        if (displayCount > 0) {
+          section.style.display = 'block';
+          if (localCountSpan) localCountSpan.textContent = displayCount;
+          if (localCountHeader) localCountHeader.textContent = displayCount;
+          if (localCountBadge) {
+            localCountBadge.style.display = 'inline';
+            localCountBadge.querySelector('#local-count').textContent = displayCount;
+          }
+        } else {
+          section.style.display = 'none';
+        }
+      } else {
+        section.style.display = 'none';
+      }
+      
+      updateEmptyState();
+      
+    } catch (error) {
+      console.error('[Liste] Erreur chargement fiches locales:', error);
     }
   }
   
-  // Lancer au chargement du DOM
-  document.addEventListener('DOMContentLoaded', () => {
-    console.log('[Liste] DOM chargé, attente de FicheApp...');
-    attendreEtAfficherFiches();
+  // Fonction utilitaire pour échapper le HTML
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  
+  // Supprimer une fiche locale
+  window.supprimerFicheLocale = async function(localId) {
+    if (!confirm('Supprimer définitivement cette fiche locale ?')) return;
+    
+    if (window.FicheApp && typeof window.FicheApp.deleteFiche === 'function') {
+      await window.FicheApp.deleteFiche(localId);
+      await afficherFichesLocales();
+      showToast('Fiche locale supprimée', 'success');
+    }
+  };
+  
+  // Synchronisation
+  window.syncAll = async function() {
+    const btn = document.getElementById('fab-sync');
+    if (!window.FicheApp || typeof window.FicheApp.syncAll !== 'function') {
+      showToast('Synchronisation non disponible', 'warning');
+      return;
+    }
+    
+    btn.classList.add('syncing');
+    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
+    
+    try {
+      const result = await window.FicheApp.syncAll();
+      showToast(`${result.synced} fiche(s) synchronisée(s)`, 'success');
+      await afficherFichesLocales();
+      window.location.reload();
+    } catch (error) {
+      showToast('Erreur lors de la synchronisation', 'danger');
+      console.error(error);
+    } finally {
+      btn.classList.remove('syncing');
+      btn.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
+    }
+  };
+  
+  // Toast notification
+  function showToast(message, type = 'success') {
+    let toast = document.getElementById('liste-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'liste-toast';
+      toast.style.cssText = `
+        position: fixed;
+        bottom: 90px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${type === 'success' ? '#006633' : type === 'danger' ? '#dc3545' : '#ffc107'};
+        color: ${type === 'warning' ? '#000' : 'white'};
+        padding: 10px 20px;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        z-index: 9999;
+        white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+      `;
+      document.body.appendChild(toast);
+    }
+    
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    setTimeout(() => {
+      toast.style.opacity = '0';
+    }, 2000);
+  }
+  
+  // FAB button scroll behavior
+  function initFabButton() {
+    const fab = document.getElementById('fab-sync');
+    if (!fab) return;
+    
+    fab.addEventListener('click', () => window.syncAll());
+    
+    let lastScroll = 0;
+    window.addEventListener('scroll', () => {
+      const currentScroll = window.pageYOffset;
+      if (currentScroll > lastScroll && currentScroll > 100) {
+        fab.classList.add('hidden');
+      } else {
+        fab.classList.remove('hidden');
+      }
+      lastScroll = currentScroll;
+    });
+  }
+  
+  // Mise à jour du compteur total
+  function updateTotalCount() {
+    const serverCount = document.querySelectorAll('#server-fiches-list .fiche-card').length;
+    const localCards = document.querySelectorAll('#local-fiches-list .fiche-card');
+    let localCount = 0;
+    
+    // Filtrer selon le statut actuel
+    const urlParams = new URLSearchParams(window.location.search);
+    const statutFiltre = urlParams.get('statut');
+    
+    localCards.forEach(card => {
+      const badge = card.querySelector('.fiche-badge');
+      if (badge) {
+        const isSoumis = badge.innerText.includes('Soumis');
+        if (!statutFiltre || 
+            (statutFiltre === 'soumis' && isSoumis) ||
+            (statutFiltre === 'brouillon' && !isSoumis)) {
+          localCount++;
+        }
+      }
+    });
+    
+    const totalSpan = document.getElementById('total-fiches-count');
+    if (totalSpan) {
+      totalSpan.textContent = serverCount + localCount;
+    }
+  }
+  
+  // Initialisation
+  document.addEventListener('DOMContentLoaded', async () => {
+    await afficherFichesLocales();
+    initFabButton();
+    updateTotalCount();
+    
+    // Écouter les changements de filtres
+    const observer = new MutationObserver(() => {
+      updateTotalCount();
+    });
+    
+    const localList = document.getElementById('local-fiches-list');
+    if (localList) {
+      observer.observe(localList, { childList: true, subtree: true });
+    }
   });
+  
+  // Exposer globalement
+  window.afficherFichesLocales = afficherFichesLocales;
 </script>
 {% endblock %}

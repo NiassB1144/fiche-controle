@@ -1,10 +1,10 @@
 // ========================================================================
-// SERVICE WORKER — fiche-controle-v10 (POST + IndexedDB + redirect fix)
+// SERVICE WORKER — fiche-controle-v11 (corrigé avec POST + IndexedDB + redirect fix)
 // ========================================================================
 
-const CACHE_NAME = 'fiche-controle-v10';
+const CACHE_NAME = 'fiche-controle-v11';
 const DB_NAME = 'ficheControleDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3; // Incrémenté pour correspondre à app.js
 const STORE = 'fiches_locales';
 
 const ASSETS = [
@@ -26,6 +26,7 @@ const ASSETS = [
 
 // ── Install ──────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installation...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) =>
@@ -37,20 +38,30 @@ self.addEventListener('install', (event) => {
           )
         )
       )
-      .then(() => self.skipWaiting())
+      .then(() => {
+        console.log('[SW] Installation terminée');
+        return self.skipWaiting();
+      })
   );
 });
 
 // ── Activate ─────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activation...');
   event.waitUntil(
     caches.keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+          keys.filter((key) => key !== CACHE_NAME).map((key) => {
+            console.log('[SW] Suppression ancien cache:', key);
+            return caches.delete(key);
+          })
         )
       )
-      .then(() => self.clients.claim())
+      .then(() => {
+        console.log('[SW] Activation terminée');
+        return self.clients.claim();
+      })
   );
 });
 
@@ -61,7 +72,10 @@ function ouvrirDB() {
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
       if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: 'local_id' });
+        const store = db.createObjectStore(STORE, { keyPath: 'local_id' });
+        store.createIndex('synced', 'synced', { unique: false });
+        store.createIndex('server_pk', 'server_pk', { unique: false });
+        console.log('[SW] Base IndexedDB créée/mise à jour');
       }
     };
     req.onsuccess = (e) => resolve(e.target.result);
@@ -69,20 +83,36 @@ function ouvrirDB() {
   });
 }
 
-async function saveFicheLocal(body) {
+async function saveFicheLocal(body, originalRequest) {
   const db = await ouvrirDB();
   const tx = db.transaction(STORE, 'readwrite');
   const store = tx.objectStore(STORE);
+  
+  // Extraire le token CSRF si présent
+  let csrfToken = null;
+  if (originalRequest) {
+    csrfToken = originalRequest.headers.get('X-CSRFToken');
+  }
+  
   const fiche = {
     ...body,
     local_id: Date.now(),
-    synced: false
+    synced: false,
+    saved_at: new Date().toISOString(),
+    csrf_token: csrfToken
   };
-  store.put(fiche);
-  return tx.complete;
+  
+  return new Promise((resolve, reject) => {
+    const req = store.put(fiche);
+    req.onsuccess = () => {
+      console.log('[SW] Fiche sauvegardée localement:', fiche.local_id);
+      resolve(fiche.local_id);
+    };
+    req.onerror = () => reject(req.error);
+  });
 }
 
-async function getFichesLocales() {
+async function getAllFichesLocales() {
   const db = await ouvrirDB();
   const tx = db.transaction(STORE, 'readonly');
   return new Promise((resolve, reject) => {
@@ -92,26 +122,98 @@ async function getFichesLocales() {
   });
 }
 
+async function markFicheAsSynced(local_id) {
+  const db = await ouvrirDB();
+  const tx = db.transaction(STORE, 'readwrite');
+  const store = tx.objectStore(STORE);
+  
+  return new Promise((resolve, reject) => {
+    const req = store.get(local_id);
+    req.onsuccess = () => {
+      const fiche = req.result;
+      if (fiche) {
+        fiche.synced = true;
+        fiche.synced_at = new Date().toISOString();
+        store.put(fiche);
+        console.log('[SW] Fiche marquée comme synchronisée:', local_id);
+      }
+      resolve();
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function deleteFicheLocale(local_id) {
+  const db = await ouvrirDB();
+  const tx = db.transaction(STORE, 'readwrite');
+  const store = tx.objectStore(STORE);
+  return new Promise((resolve, reject) => {
+    const req = store.delete(local_id);
+    req.onsuccess = () => {
+      console.log('[SW] Fiche locale supprimée:', local_id);
+      resolve();
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
 async function syncFiches() {
-  const fiches = await getFichesLocales();
-  for (const f of fiches.filter(x => !x.synced)) {
+  console.log('[SW] Début synchronisation des fiches...');
+  const fiches = await getAllFichesLocales();
+  const pending = fiches.filter(f => !f.synced);
+  
+  if (pending.length === 0) {
+    console.log('[SW] Aucune fiche à synchroniser');
+    return { synced: 0, failed: 0 };
+  }
+  
+  let synced = 0;
+  let failed = 0;
+  
+  for (const fiche of pending) {
     try {
-      const res = await fetch('/api/fiches/', {
+      const url = fiche.server_pk ? `/api/fiche/${fiche.server_pk}/modifier/` : '/api/fiche/creer/';
+      
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (fiche.csrf_token) {
+        headers['X-CSRFToken'] = fiche.csrf_token;
+      }
+      
+      const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(f)
+        headers: headers,
+        body: JSON.stringify(fiche)
       });
-      if (res.ok) {
-        const db = await ouvrirDB();
-        const tx = db.transaction(STORE, 'readwrite');
-        const store = tx.objectStore(STORE);
-        f.synced = true;
-        store.put(f);
+      
+      if (response.ok) {
+        const data = await response.json();
+        await markFicheAsSynced(fiche.local_id);
+        synced++;
+        console.log(`[SW] ✓ Fiche synchronisée: ${fiche.entreprise || fiche.local_id}`);
+        
+        // Notifier les clients ouverts
+        const clients = await self.clients.matchAll();
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'FICHE_SYNCED',
+            payload: { local_id: fiche.local_id, server_id: data.id }
+          });
+        });
+      } else {
+        failed++;
+        console.warn(`[SW] ✗ Échec sync ${fiche.local_id}:`, response.status);
       }
     } catch (err) {
-      console.warn('[SW] Sync échoué pour fiche locale', f.local_id, err);
+      failed++;
+      console.error(`[SW] ✗ Erreur sync ${fiche.local_id}:`, err);
     }
   }
+  
+  console.log(`[SW] Synchronisation terminée: ${synced} OK, ${failed} KO`);
+  return { synced, failed };
 }
 
 // ── Fetch ─────────────────────────────────────────────────────────────────
@@ -122,16 +224,38 @@ self.addEventListener('fetch', (event) => {
   if (!url.origin.startsWith(self.location.origin)) return;
   if (url.pathname.startsWith('/admin/')) return;
 
-  // ── POST vers /api/fiches/ : sauvegarde hors ligne ─────────────────────
-  if (event.request.method === 'POST' && url.pathname.startsWith('/api/fiches/')) {
+  // ── POST vers /api/fiche/creer/ ou /api/fiche/*/modifier/ : sauvegarde hors ligne ──
+  if (event.request.method === 'POST' && 
+      (url.pathname.match(/^\/api\/fiche\/creer\/$/) || 
+       url.pathname.match(/^\/api\/fiche\/\d+\/modifier\/$/))) {
     event.respondWith(
-      fetch(event.request).catch(async () => {
-        const body = await event.request.clone().json();
-        await saveFicheLocal(body);
-        return new Response(JSON.stringify({ offline: true, saved: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        });
+      fetch(event.request.clone()).catch(async (error) => {
+        console.log('[SW] Mode hors-ligne, sauvegarde locale du POST');
+        try {
+          const body = await event.request.clone().json();
+          await saveFicheLocal(body, event.request);
+          
+          // Retourner une réponse simulée pour que l'app continue
+          return new Response(JSON.stringify({ 
+            offline: true, 
+            saved: true, 
+            message: 'Fiche sauvegardée localement (hors-ligne)',
+            local_id: Date.now()
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (e) {
+          console.error('[SW] Erreur sauvegarde locale:', e);
+          return new Response(JSON.stringify({ 
+            offline: true, 
+            saved: false, 
+            error: 'Erreur lors de la sauvegarde' 
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
       })
     );
     return;
@@ -151,7 +275,11 @@ self.addEventListener('fetch', (event) => {
         .catch(() =>
           caches.match(event.request).then((cached) => {
             if (cached) return cached;
-            return new Response(JSON.stringify({ fiches: [], offline: true }), {
+            return new Response(JSON.stringify({ 
+              error: 'offline', 
+              message: 'Vous êtes hors-ligne',
+              data: [] 
+            }), {
               status: 200,
               headers: { 'Content-Type': 'application/json' }
             });
@@ -166,9 +294,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // ✅ Correction : ignorer les redirections opaques
+          // Ignorer les redirections opaques
           if (response.type === 'opaqueredirect') {
-            return response; // renvoyer la redirection sans la mettre en cache
+            return response;
           }
           if (response.ok) {
             const clone = response.clone();
@@ -190,23 +318,59 @@ self.addEventListener('fetch', (event) => {
   // ── Fichiers statiques : Cache First ───────────────────────────────────
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) return cached;
+      if (cached) {
+        return cached;
+      }
       return fetch(event.request)
         .then((response) => {
-          if (response.ok) {
+          if (response.ok && response.type !== 'opaque') {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
           return response;
         })
-        .catch(() => new Response('', { status: 404, statusText: 'Not Found' }));
+        .catch(() => {
+          // Pour les images manquantes, retourner un placeholder
+          if (event.request.url.match(/\.(jpg|jpeg|png|gif|svg)$/)) {
+            return caches.match('/static/icons/icon-192.png');
+          }
+          return new Response('', { status: 404, statusText: 'Not Found' });
+        });
     })
   );
 });
 
 // ── Background Sync ─────────────────────────────────────────────────────
 self.addEventListener('sync', (event) => {
+  console.log('[SW] Événement sync reçu:', event.tag);
   if (event.tag === 'sync-fiches') {
     event.waitUntil(syncFiches());
   }
 });
+
+// ── Message handling (depuis l'app) ─────────────────────────────────────
+self.addEventListener('message', (event) => {
+  console.log('[SW] Message reçu:', event.data);
+  
+  if (event.data && event.data.type === 'FORCE_SYNC') {
+    event.waitUntil(syncFiches());
+  }
+  
+  if (event.data && event.data.type === 'GET_PENDING_COUNT') {
+    getAllFichesLocales().then(fiches => {
+      const pending = fiches.filter(f => !f.synced).length;
+      event.ports[0].postMessage({ pending });
+    });
+  }
+});
+
+// ── Periodic Sync (si supporté) ─────────────────────────────────────────
+if ('periodicSync' in self.registration) {
+  self.addEventListener('periodicsync', (event) => {
+    if (event.tag === 'periodic-sync-fiches') {
+      event.waitUntil(syncFiches());
+    }
+  });
+}
+
+console.log('[SW] Service Worker chargé - version v11');
