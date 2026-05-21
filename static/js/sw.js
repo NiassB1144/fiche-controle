@@ -1,8 +1,11 @@
 // ========================================================================
-// SERVICE WORKER — fiche-controle-v7 (CORRIGÉ)
+// SERVICE WORKER — fiche-controle-v8 (corrigé avec POST + IndexedDB)
 // ========================================================================
 
-const CACHE_NAME = 'fiche-controle-v7';
+const CACHE_NAME = 'fiche-controle-v8';
+const DB_NAME = 'ficheControleDB';
+const DB_VERSION = 2;
+const STORE = 'fiches_locales';
 
 const ASSETS = [
   '/',
@@ -51,16 +54,91 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// ── IndexedDB helpers ───────────────────────────────────────────────────
+function ouvrirDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE, { keyPath: 'local_id' });
+      }
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function saveFicheLocal(body) {
+  const db = await ouvrirDB();
+  const tx = db.transaction(STORE, 'readwrite');
+  const store = tx.objectStore(STORE);
+  const fiche = {
+    ...body,
+    local_id: Date.now(),
+    synced: false
+  };
+  store.put(fiche);
+  return tx.complete;
+}
+
+async function getFichesLocales() {
+  const db = await ouvrirDB();
+  const tx = db.transaction(STORE, 'readonly');
+  return new Promise((resolve, reject) => {
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function syncFiches() {
+  const fiches = await getFichesLocales();
+  for (const f of fiches.filter(x => !x.synced)) {
+    try {
+      const res = await fetch('/api/fiches/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(f)
+      });
+      if (res.ok) {
+        const db = await ouvrirDB();
+        const tx = db.transaction(STORE, 'readwrite');
+        const store = tx.objectStore(STORE);
+        f.synced = true;
+        store.put(f);
+      }
+    } catch (err) {
+      console.warn('[SW] Sync échoué pour fiche locale', f.local_id, err);
+    }
+  }
+}
+
 // ── Fetch ─────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  if (!event.request.url.startsWith('http')) return;
-
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
+
+  // Ignorer les requêtes externes ou admin
+  if (!url.origin.startsWith(self.location.origin)) return;
   if (url.pathname.startsWith('/admin/')) return;
 
-  // ── API GET : Network First + mise en cache ───────────────────────────
+  // ── POST vers /api/fiches/ : sauvegarde hors ligne ─────────────────────
+  if (event.request.method === 'POST' && url.pathname.startsWith('/api/fiches/')) {
+    event.respondWith(
+      fetch(event.request).catch(async () => {
+        const body = await event.request.clone().json();
+        await saveFicheLocal(body);
+        // Réponse immédiate au frontend
+        return new Response(JSON.stringify({ offline: true, saved: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      })
+    );
+    return;
+  }
+
+  // ── API GET : Network First + cache ────────────────────────────────────
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(event.request)
@@ -84,14 +162,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ── Pages HTML : Network First + cache obligatoire ────────────────────
-  // FIX PRINCIPAL : on met TOUJOURS la page en cache au retour réseau
-  // et on sert depuis le cache en hors ligne (y compris /fiches/)
+  // ── Pages HTML : Network First + cache ─────────────────────────────────
   if (event.request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Mettre en cache même si statut 200 (pages avec session Django)
           if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
@@ -101,7 +176,6 @@ self.addEventListener('fetch', (event) => {
         .catch(() =>
           caches.match(event.request).then((cached) => {
             if (cached) return cached;
-            // Fallback : page offline dédiée
             return caches.match('/offline.html')
               .then((offlinePage) => offlinePage || caches.match('/'));
           })
@@ -110,7 +184,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ── Fichiers statiques : Cache First ─────────────────────────────────
+  // ── Fichiers statiques : Cache First ───────────────────────────────────
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -125,4 +199,11 @@ self.addEventListener('fetch', (event) => {
         .catch(() => new Response('', { status: 404, statusText: 'Not Found' }));
     })
   );
+});
+
+// ── Background Sync ─────────────────────────────────────────────────────
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-fiches') {
+    event.waitUntil(syncFiches());
+  }
 });
