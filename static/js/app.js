@@ -1,107 +1,93 @@
 // ========================================================================
-// FICHE-CONTRÔLE v3 - App.js (CORRIGÉ)
+// FICHE-CONTROLE v3 — app.js (corrigé avec offline/online + local_id)
 // ========================================================================
 
 const LOG_PREFIX = '[FicheApp]';
 const DB_NAME = 'ficheControleDB';
 const DB_VERSION = 2;
 const STORE = 'fiches_locales';
-const OLD_STORE = 'fiches_hors_ligne';
 
 // ========================================================================
-// SECTION 1: LOGS
+// LOGGING
 // ========================================================================
-function logInfo(msg, data = null) { /* ... comme avant ... */ }
-function logWarn(msg, data = null) { /* ... */ }
-function logError(msg, data = null) { /* ... */ }
+function logInfo(msg, data = null) { console.log(LOG_PREFIX, msg, data || ''); }
+function logWarn(msg, data = null) { console.warn(LOG_PREFIX, msg, data || ''); }
+function logError(msg, data = null) { console.error(LOG_PREFIX, msg, data || ''); }
 
 // ========================================================================
-// SECTION 2: NOTIFICATIONS TOAST
+// NOTIFICATIONS
 // ========================================================================
-function afficherNotification(message, type = 'info') { /* ... */ }
-function creerToastContainer() { /* ... */ }
+function afficherNotification(message, type = 'info') {
+  const container = document.getElementById('toast-container') || creerToastContainer();
+  const toast = document.createElement('div');
+  toast.className = `toast align-items-center text-bg-${type} border-0 show`;
+  toast.role = 'alert';
+  toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div></div>`;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+function creerToastContainer() {
+  const c = document.createElement('div');
+  c.id = 'toast-container';
+  c.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+  document.body.appendChild(c);
+  return c;
+}
 
 // ========================================================================
-// SECTION 3: GESTION CONNEXION & STATUT
+// INDEXEDDB
 // ========================================================================
-async function verifierConnexionReelle() { /* ... */ }
-async function mettreAJourStatut() { /* ... */ }
-window.addEventListener('online', () => mettreAJourStatut());
-window.addEventListener('offline', () => mettreAJourStatut());
-document.addEventListener('DOMContentLoaded', () => mettreAJourStatut());
+function ouvrirDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE, { keyPath: 'local_id' });
+      }
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+async function sauvegarderLocalement(donnees) {
+  const db = await ouvrirDB();
+  const tx = db.transaction(STORE, 'readwrite');
+  const store = tx.objectStore(STORE);
+  const fiche = { ...donnees, local_id: Date.now(), synced: false };
+  store.put(fiche);
+  return fiche.local_id;
+}
+async function getFicheByLocalId(local_id) {
+  const db = await ouvrirDB();
+  const tx = db.transaction(STORE, 'readonly');
+  return new Promise((resolve, reject) => {
+    const req = tx.objectStore(STORE).get(local_id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
 
 // ========================================================================
-// SECTION 4: INDEXEDDB
-// ========================================================================
-function ouvrirDB() { /* ... */ }
-async function sauvegarderLocalement(donnees) { /* ... */ }
-async function getFichesNonSynced() { /* ... */ }
-async function getToutesFichesLocales() { /* ... */ }
-async function getFicheByLocalId(local_id) { /* ... */ }
-async function deleteLocalFiche(local_id) { /* ... */ }
-async function marquerSynced(local_id, server_pk = null) { /* ... */ }
-
-// ========================================================================
-// SECTION 5: COMPTEURS & LISTES
-// ========================================================================
-async function getLocalFicheCount() { /* ... */ }
-async function getLocalFichesList() { /* ... */ }
-
-// ========================================================================
-// SECTION 6: BANNIERE SYNC
-// ========================================================================
-async function majBanniereSync() { /* ... */ }
-
-// ========================================================================
-// SECTION 7: RENDU LISTE FICHES LOCALES
-// ========================================================================
-async function renderLocalFiches() { /* ... */ }
-
-// ========================================================================
-// SECTION 8: TÉLÉCHARGEMENT FICHES
-// ========================================================================
-async function downloadFicheAsJson(local_id) { /* ... */ }
-async function downloadFichePdf(local_id) { /* ... */ }
-
-// ========================================================================
-// SECTION 9: SYNCHRONISATION
-// ========================================================================
-let syncInProgress = false;
-let syncRetryCount = 0;
-const MAX_RETRIES = 2;
-const RETRY_DELAY = 2000;
-async function syncLocale() { /* ... */ }
-
-// ========================================================================
-// SECTION 10: PWA - INSTALLATION
-// ========================================================================
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => { /* ... */ });
-
-// ========================================================================
-// SECTION 11: FORMULAIRE - ENREGISTREMENT ONLINE/OFFLINE
+// FORMULAIRE — ENREGISTREMENT ONLINE/OFFLINE
 // ========================================================================
 async function soumettreFormulaire(statut) {
   const donnees = collecterDonnees(statut);
 
   if (!navigator.onLine) {
-    // Mode hors ligne → sauvegarde locale
+    // Hors ligne → sauvegarde locale
     const local_id = await sauvegarderLocalement(donnees);
     afficherNotification('Fiche sauvegardée hors ligne', 'success');
     window.location.href = '/fiches/nouvelle/?local_id=' + encodeURIComponent(local_id);
   } else {
-    // Mode en ligne → envoi au serveur
+    // En ligne → envoi au serveur
     try {
       const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
       const resp = await fetch('/api/fiche/creer/', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken
-        },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
         body: JSON.stringify(donnees)
       });
-
       if (resp.ok) {
         const data = await resp.json();
         afficherNotification('Fiche créée en ligne', 'success');
@@ -117,32 +103,44 @@ async function soumettreFormulaire(statut) {
 }
 
 // ========================================================================
-// SECTION 12: INITIALISATION DOM
+// INITIALISATION DOM
 // ========================================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   logInfo('🚀 Initialisation application...');
-  if (!window.indexedDB) {
-    logWarn('⚠️ IndexedDB non disponible!');
-    afficherNotification('Attention: Mode offline limité', 'warning');
+
+  // Charger une fiche locale si ?local_id=... est présent
+  const params = new URLSearchParams(window.location.search);
+  const local_id = params.get('local_id');
+  if (local_id) {
+    const fiche = await getFicheByLocalId(parseInt(local_id));
+    if (fiche) {
+      for (const [name, value] of Object.entries(fiche)) {
+        const el = document.querySelector(`[name="${name}"]`);
+        if (el) {
+          if (el.type === 'checkbox') {
+            el.checked = value === 'on';
+          } else {
+            el.value = value;
+          }
+        }
+      }
+      afficherNotification('Fiche locale chargée', 'info');
+    } else {
+      afficherNotification('Fiche locale introuvable', 'danger');
+    }
   }
-  majBanniereSync();
-  renderLocalFiches();
-  window.addEventListener('online', () => { mettreAJourStatut(); renderLocalFiches(); });
-  window.addEventListener('offline', () => { renderLocalFiches(); });
+
   logInfo('✓ Application prête');
 });
 
 // ========================================================================
-// SECTION 13: EXPORTS GLOBAUX
+// EXPORT GLOBAL
 // ========================================================================
 window.FicheApp = {
-  logInfo, logWarn, logError,
-  getLocalFicheCount, getLocalFichesList,
-  getFichesNonSynced, getToutesFichesLocales,
-  getFicheByLocalId, deleteLocalFiche,
-  sauvegarderLocalement, syncLocale,
-  downloadFicheAsJson, downloadFichePdf,
-  renderLocalFiches, afficherNotification,
-  verifierConnexionReelle, soumettreFormulaire
+  sauvegarderLocalement,
+  getFicheByLocalId,
+  soumettreFormulaire,
+  afficherNotification,
+  logInfo, logWarn, logError
 };
 logInfo('✓ Fichier app.js v3 chargé');
