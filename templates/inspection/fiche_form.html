@@ -6,6 +6,7 @@
 {% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/fiche-mobile.css' %}">
 <style>
   /* ===== BASE STYLES ===== */
   .etape-section { display: none; }
@@ -866,97 +867,24 @@ function collecterDonnees(statut) {
   return data;
 }
 
-// ===== SAUVEGARDE AUTO =====
-function autoSaveBrouillon() {
-  const entreprise = document.querySelector('[name="entreprise"]').value.trim();
-  const date_controle = document.querySelector('[name="date_controle"]').value.trim();
-  if (!entreprise || !date_controle) return;
-  
-  const donnees = collecterDonnees('brouillon');
-  if (navigator.onLine) {
-    envoyerADjango(donnees, true);
-  } else {
-    sauvegarderLocalement(donnees).then(() => {
-      showToast('Brouillon sauvegardé localement', 'info');
-    });
-  }
-}
+// ===== SAUVEGARDE AUTO DESACTIVEE =====
+// La sauvegarde auto a été supprimée pour éviter les doublons.
+// Utilisez le bouton "Enregistrer" explicitement.
 
-// Activation de la sauvegarde auto
-document.querySelectorAll('.form-control, .form-select, input, textarea').forEach(field => {
-  field.addEventListener('input', () => {
-    clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(autoSaveBrouillon, 3000);
-  });
-});
-
-// ===== ENVOI VERS DJANGO =====
+// ===== ENVOI VERS DJANGO (Désactivé - Utiliser FicheApp.soumettreFormulaire à la place) =====
+// Voir app-offline-unified.js pour la vraie implémentation
 async function envoyerADjango(donnees, isAutoSave = false) {
-  const csrfToken = document.cookie.split('; ')
-    .find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
-
-  const url = (editingPk)
-    ? ('/api/fiche/' + editingPk + '/modifier/')
-    : '/api/fiche/creer/';
-
-  try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken,
-      },
-      body: JSON.stringify(donnees),
-    });
-
-    if (resp.ok) {
-      const data = await resp.json();
-      if (editingLocalId && typeof deleteLocalFiche === 'function') {
-        await deleteLocalFiche(editingLocalId);
-      }
-      if (!isAutoSave) {
-        showToast('Fiche enregistrée avec succès !', 'success');
-        setTimeout(() => { window.location.href = '/fiches/' + data.id + '/'; }, 1500);
-      }
-    } else {
-      if (!isAutoSave) showToast('Erreur lors de l\'enregistrement', 'danger');
-    }
-  } catch (e) {
-    const local_id = await sauvegarderLocalement(donnees);
-    if (local_id && !isAutoSave) {
-      showToast('Connexion perdue. Fiche sauvegardée localement.', 'warning');
-      setTimeout(() => { window.location.href = '/fiches/'; }, 800);
-    }
-  }
+  return;
 }
 
-// ===== SOUMISSION PRINCIPALE =====
+// ===== SOUMISSION PRINCIPALE (version unifiée) =====
 async function soumettreFormulaire(statut) {
-  const entreprise = document.querySelector('[name="entreprise"]').value.trim();
-  const date_controle = document.querySelector('[name="date_controle"]').value.trim();
-
-  if (!entreprise || !date_controle) {
-    allerEtape(1);
-    showToast('Veuillez remplir le nom de l\'entreprise et la date du contrôle.', 'warning');
+  if (typeof window.FicheApp === 'undefined' || typeof window.FicheApp.soumettreFormulaire !== 'function') {
+    console.error('FicheApp non chargé. Vérifier app-offline-unified.js');
+    showToast('Erreur: Application non prête', 'danger');
     return;
   }
-
-  const donnees = collecterDonnees(statut);
-
-  if (editingLocalId) donnees.local_id = editingLocalId;
-  if (editingPk) donnees.server_pk = editingPk;
-
-  if (navigator.onLine) {
-    await envoyerADjango(donnees);
-  } else {
-    const local_id = await sauvegarderLocalement(donnees);
-    if (local_id) {
-      showToast('Fiche sauvegardée localement !', 'success');
-      setTimeout(() => { window.location.href = '/fiches/'; }, 800);
-    } else {
-      showToast('Erreur lors de la sauvegarde locale.', 'danger');
-    }
-  }
+  await window.FicheApp.soumettreFormulaire(statut);
 }
 
 // ===== SWIPE POUR MOBILE =====

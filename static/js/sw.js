@@ -1,22 +1,23 @@
 // ========================================================================
-// SERVICE WORKER — fiche-controle-v11 (corrigé avec POST + IndexedDB + redirect fix)
+// SERVICE WORKER — fiche-controle-v12 (IndexedDB + offline optimisé)
 // ========================================================================
 
-const CACHE_NAME = 'fiche-controle-v11';
+const CACHE_NAME = 'fiche-controle-v12';
 const DB_NAME = 'ficheControleDB';
-const DB_VERSION = 3; // Incrémenté pour correspondre à app.js
+const DB_VERSION = 5; // Synchronisé avec app-offline-unified.js
 const STORE = 'fiches_locales';
 
 const ASSETS = [
   '/',
   '/fiches/',
-  '/fiches/nouvelle/',
+  '/fiches/creer/',
   '/connexion/',
   '/offline.html',
   '/static/css/bootstrap.min.css',
   '/static/css/style.css',
+  '/static/css/fiche-mobile.css',
   '/static/js/bootstrap.bundle.min.js',
-  '/static/js/app.js',
+  '/static/js/app-offline-unified.js',
   '/static/icons/bootstrap-icons.css',
   '/manifest.json',
   '/static/icons/icon-192.png',
