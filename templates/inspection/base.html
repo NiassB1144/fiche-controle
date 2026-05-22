@@ -18,7 +18,7 @@
   >
 
   <!-- PWA -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FicheControle">
 
@@ -581,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   updateSyncBanner();
 
-  setInterval(updateSyncBanner, 30000);
+  setInterval(updateSyncBanner, 60000);
 
   // service worker
   if ('serviceWorker' in navigator) {
@@ -603,36 +603,37 @@ document.addEventListener('DOMContentLoaded', () => {
 {% block extra_js %}{% endblock %}
 
 <script>
-// Auto-sync offline data when connection restored
-window.addEventListener('online', async () => {
-  console.log('[Auto-Sync] Connexion rétablie, synchronisation en cours...');
+// Auto-sync avec debounce - éviter les syncs multiples
+let lastSyncTime = 0;
+const SYNC_DEBOUNCE = 5000; // 5 secondes minimum entre syncs
+
+async function throttledSync() {
+  const now = Date.now();
+  if (now - lastSyncTime < SYNC_DEBOUNCE) {
+    return; // Trop rapide, skip
+  }
+  lastSyncTime = now;
+  
   if (typeof window.FicheApp !== 'undefined' && typeof window.FicheApp.syncAll === 'function') {
     try {
       const result = await window.FicheApp.syncAll();
       if (result.synced > 0) {
-        window.FicheApp.afficherNotification(`✅ ${result.synced} fiche(s) synchronisée(s)`, 'success');
-        // Recharger la liste si on est sur la page fiches
-        if (typeof location !== 'undefined' && location.pathname.includes('/fiches/')) {
-          setTimeout(() => location.reload(), 1500);
-        }
+        console.log(`[Auto-Sync] ${result.synced} fiche(s) synchronisée(s)`);
       }
     } catch (e) {
       console.error('[Auto-Sync] Erreur:', e);
     }
   }
+}
+
+// Sync au retour online
+window.addEventListener('online', async () => {
+  console.log('[Auto-Sync] Connexion rétablie');
+  await throttledSync();
 });
 
-// Sync périodique toutes les 30 secondes si online
-setInterval(async () => {
-  if (!navigator.onLine) return;
-  if (typeof window.FicheApp !== 'undefined' && typeof window.FicheApp.syncAll === 'function') {
-    try {
-      await window.FicheApp.syncAll();
-    } catch (e) {
-      // Silently fail - on retry dans 30s
-    }
-  }
-}, 30000);
+// Sync périodique toutes les 60s (au lieu de 30s)
+setInterval(throttledSync, 60000);
 </script>
 </body>
 </html>

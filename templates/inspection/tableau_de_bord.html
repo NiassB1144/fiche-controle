@@ -116,13 +116,6 @@
     </div>
     <div class="col-6 col-md-3">
       <div class="stat-card p-3">
-        <div class="stat-value text-warning">{{ brouillons|default:"0" }}</div>
-        <div class="stat-label">Brouillons</div>
-        <i class="bi bi-pencil-square stat-icon"></i>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="stat-card p-3">
         <div class="stat-value text-success">{{ soumises|default:"0" }}</div>
         <div class="stat-label">Soumises</div>
         <i class="bi bi-send-check stat-icon"></i>
@@ -142,6 +135,31 @@
     <i class="bi bi-wifi-off me-2"></i>
     <strong>Mode hors connexion</strong> — Les fiches sont sauvegardées localement et seront synchronisées automatiquement.
   </div>
+
+  <!-- Barre de recherche -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="card-body p-4">
+      <div class="d-flex gap-2">
+        <input type="text" id="search-entreprise" class="form-control form-control-lg" 
+               placeholder="🔍 Rechercher une entreprise par nom..." 
+               style="border-radius: 12px; padding: 0.75rem 1.2rem;">
+        <a href="{% url 'liste_fiches' %}" class="btn btn-senegal btn-lg" style="border-radius: 12px; padding: 0.75rem 1.5rem;">
+          <i class="bi bi-list"></i> Voir tout
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('search-entreprise').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const query = e.target.value.trim();
+        if (query) {
+          window.location.href = `/fiches/?search=${encodeURIComponent(query)}`;
+        }
+      }
+    });
+  </script>
 
   <!-- Section fiches récentes -->
   <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
@@ -172,9 +190,9 @@
               </div>
             </div>
             <div>
-              <span class="badge-statut {% if fiche.statut == 'soumis' %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
-                <i class="bi {% if fiche.statut == 'soumis' %}bi-check-lg{% else %}bi-pencil{% endif %} me-1"></i>
-                {{ fiche.get_statut_display }}
+              <span class="badge-statut bg-success text-white">
+                <i class="bi bi-check-lg me-1"></i>
+                Soumis
               </span>
             </div>
           </div>

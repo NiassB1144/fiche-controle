@@ -374,4 +374,4 @@ if ('periodicSync' in self.registration) {
   });
 }
 
-console.log('[SW] Service Worker chargé - version v11');
+console.log('[SW] Service Worker chargé - version v12');

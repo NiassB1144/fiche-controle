@@ -139,10 +139,22 @@ def liste_fiches(request):
     user = request.user
     fiches = FicheControle.objects.all().select_related('inspecteur') if user.is_staff \
              else FicheControle.objects.filter(inspecteur=user)
+    
+    # Recherche par nom d'entreprise
+    search = request.GET.get('search', '').strip()
+    if search:
+        fiches = fiches.filter(entreprise__icontains=search)
+    
+    # Filtrage par statut (garde le support legacy)
     statut = request.GET.get('statut', '')
     if statut:
         fiches = fiches.filter(statut=statut)
-    return render(request, 'inspection/liste_fiches.html', {'fiches': fiches, 'statut_filtre': statut})
+    
+    return render(request, 'inspection/liste_fiches.html', {
+        'fiches': fiches, 
+        'statut_filtre': statut,
+        'search_query': search
+    })
 
 
 @login_required
@@ -286,6 +298,28 @@ def api_fiche_modifier(request, pk):
         fiche = _construire_fiche(data, request.user, fiche)
         fiche.save()
         return JsonResponse({'success': True, 'id': fiche.pk})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# API JSON — Supprimer une fiche
+# ──────────────────────────────────────────────────────────────────────────────
+@login_required
+def api_fiche_supprimer(request, pk):
+    """Supprime une fiche via API JSON (pas de template)."""
+    if request.method != 'DELETE':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        if request.user.is_staff:
+            fiche = get_object_or_404(FicheControle, pk=pk)
+        else:
+            fiche = get_object_or_404(FicheControle, pk=pk, inspecteur=request.user)
+        
+        entreprise = fiche.entreprise
+        fiche.delete()
+        return JsonResponse({'success': True, 'message': f'Fiche "{entreprise}" supprimée'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 

@@ -286,7 +286,9 @@ async function syncAll() {
     }
   }
   
-  afficherNotification(`${synced} sync✓, ${failed} échec(s)`, synced > 0 ? 'success' : 'warning');
+  if (synced > 0 || failed > 0) {
+    afficherNotification(`${synced} sync✓, ${failed} échec(s)`, synced > 0 ? 'success' : 'warning');
+  }
   logInfo(`Synchronisation: ${synced} OK, ${failed} KO`);
   
   if (typeof window.updateSyncBanner === 'function') {
@@ -389,8 +391,8 @@ async function renderLocalFiches() {
               <span class="badge bg-secondary">
                 <i class="bi bi-cloud-offline"></i> Hors-ligne
               </span>
-              <span class="badge ${fiche.statut === 'soumis' ? 'bg-success' : 'bg-warning'}">
-                ${fiche.statut === 'soumis' ? '<i class="bi bi-check-lg"></i> Soumis' : '<i class="bi bi-pencil"></i> Brouillon'}
+              <span class="badge bg-success">
+                <i class="bi bi-check-lg"></i> Soumis
               </span>
             </div>
             <div class="small text-muted d-flex flex-wrap gap-2">
@@ -402,12 +404,12 @@ async function renderLocalFiches() {
             <a href="/fiches/creer/?local_id=${fiche.local_id}" class="btn btn-sm btn-outline-primary">
               <i class="bi bi-pencil"></i> Modifier
             </a>
-            <button onclick="deleteFicheLocal('${fiche.local_id}')" class="btn btn-sm btn-outline-danger">
+            <button class="btn btn-sm btn-outline-danger" data-local-id="${fiche.local_id}" onclick="(async () => { await window.FicheApp.deleteFicheLocal('${fiche.local_id}'); })()">
               <i class="bi bi-trash3"></i> Supprimer
             </button>
-            <a href="javascript:viewLocalFiche('${fiche.local_id}')" class="btn btn-sm btn-outline-info">
+            <button class="btn btn-sm btn-outline-info" data-local-id="${fiche.local_id}" onclick="(async () => { await window.FicheApp.viewLocalFiche('${fiche.local_id}'); })()">
               <i class="bi bi-eye"></i> Voir
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -418,6 +420,11 @@ async function renderLocalFiches() {
   }
 }
 
+async function editFicheLocal(local_id) {
+  // Redirection vers le formulaire avec le local_id
+  window.location.href = `/fiches/creer/?local_id=${encodeURIComponent(local_id)}`;
+}
+
 async function viewLocalFiche(local_id) {
   const fiche = await getFicheByLocalId(local_id);
   if (!fiche) {
@@ -425,21 +432,76 @@ async function viewLocalFiche(local_id) {
     return;
   }
   
-  // Afficher les détails (modal ou redirection)
+  // Créer une modale pour afficher les détails
+  let modal = document.getElementById('fiche-detail-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'fiche-detail-modal';
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); display: flex; align-items: center;
+      justify-content: center; z-index: 9999;
+    `;
+    document.body.appendChild(modal);
+  }
+  
   const details = Object.entries(fiche)
-    .filter(([k]) => !['local_id', 'synced', 'server_pk', 'saved_at', 'updated_at', 'synced_at'].includes(k))
-    .map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(String(v))}</dd>`)
+    .filter(([k]) => !['local_id', 'synced', 'server_pk', 'saved_at', 'updated_at', 'synced_at', 'statut'].includes(k))
+    .map(([k, v]) => `<tr><td class="fw-bold">${k}</td><td>${escapeHtml(String(v || '-'))}</td></tr>`)
     .join('');
   
-  alert(`📋 Détails Fiche:\n\n${Object.entries(fiche).filter(([k]) => !k.startsWith('_')).map(([k,v]) => `${k}: ${v}`).join('\n')}`);
+  modal.innerHTML = `
+    <div style="background: white; border-radius: 12px; padding: 2rem; max-width: 90%; max-height: 80vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h5 class="fw-bold" style="margin: 0;">📋 ${escapeHtml(fiche.entreprise || 'Détails Fiche')}</h5>
+        <button onclick="document.getElementById('fiche-detail-modal').style.display='none'" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+      </div>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tbody>${details}</tbody>
+      </table>
+      <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
+        <button onclick="document.getElementById('fiche-detail-modal').style.display='none'" class="btn btn-secondary btn-sm">Fermer</button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+  
+  // Fermer en cliquant dehors
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.style.display = 'none';
+  });
 }
 
 async function deleteFicheLocal(local_id) {
-  if (!confirm('Supprimer définitivement cette fiche locale ?')) return;
+  if (!confirm('Supprimer définitivement cette fiche ?')) return;
   await deleteFiche(local_id);
   await renderLocalFiches();
   afficherNotification('Fiche supprimée ✓', 'success');
 }
+
+async function deleteFicheServer(server_pk) {
+  if (!confirm('Supprimer définitivement cette fiche du serveur ?')) return;
+  
+  try {
+    const csrfToken = getCsrfToken();
+    const response = await fetch(`/api/fiche/${server_pk}/supprimer/`, {
+      method: 'DELETE',
+      headers: { 'X-CSRFToken': csrfToken }
+    });
+    
+    if (response.ok) {
+      afficherNotification('Fiche supprimée ✓', 'success');
+      // Rediriger vers la liste
+      setTimeout(() => { window.location.href = '/fiches/'; }, 1000);
+    } else {
+      afficherNotification('Erreur suppression', 'danger');
+    }
+  } catch (e) {
+    logError('Erreur delete API', e);
+    afficherNotification('Erreur réseau', 'danger');
+  }
+}
+
 
 // ========================================================================
 // SOUMISSION FORMULAIRE
@@ -479,7 +541,7 @@ async function soumettreFormulaire(statut) {
         await sauvegarderLocalement(donnees);
       }
       afficherNotification('📱 Hors-ligne - Sauvegardé localement', 'success');
-      setTimeout(() => { window.location.href = '/fiches/'; }, 1000);
+      setTimeout(() => { window.location.href = '/fiches/?reload=1'; }, 1500);
     } catch (e) {
       afficherNotification('❌ Erreur sauvegarde', 'danger');
     }
@@ -520,7 +582,7 @@ async function soumettreFormulaire(statut) {
         await sauvegarderLocalement(donnees);
       }
       afficherNotification('🌐 En-ligne échoué - Sauvegardé localement', 'warning');
-      setTimeout(() => { window.location.href = '/fiches/'; }, 1000);
+      setTimeout(() => { window.location.href = '/fiches/?reload=1'; }, 1500);
     } catch (e2) {
       afficherNotification('❌ Erreur', 'danger');
     }
@@ -582,6 +644,8 @@ window.FicheApp = {
   collecterDonnees,
   renderLocalFiches,
   deleteFicheLocal,
+  deleteFicheServer,
+  editFicheLocal,
   viewLocalFiche,
   afficherNotification,
   logInfo, logWarn, logError

@@ -12,7 +12,7 @@ class FicheControle(models.Model):
     entreprise = models.CharField(max_length=255, verbose_name="Entreprise ou Établissement")
     date_controle = models.DateField(verbose_name="Date du contrôle")
     lieu = models.CharField(max_length=100, default="Louga", verbose_name="Lieu")
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='brouillon')
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='soumis')
     local_id = models.CharField(max_length=100, blank=True, null=True)
 
     # Section 1 — Identification

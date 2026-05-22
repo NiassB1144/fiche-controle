@@ -23,7 +23,8 @@ def serve_sw(request):
         return HttpResponse('/* sw.js introuvable */', content_type='application/javascript', status=404)
     response = HttpResponse(content, content_type='application/javascript')
     response['Service-Worker-Allowed'] = '/'
-    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    # max-age=0 = revalider toujours, but use ETag/Last-Modified pour verifier les changes
+    response['Cache-Control'] = 'public, max-age=0, must-revalidate'
     return response
 
 
@@ -64,7 +65,14 @@ def serve_offline(request):
 
 
 
+def serve_well_known(request):
+    """Ignore les requêtes inutiles de Chrome DevTools."""
+    return HttpResponse('{}', content_type='application/json', status=204)
+
 urlpatterns = [
+    # Ignorer les requêtes inutiles
+    path('.well-known/appspecific/com.chrome.devtools.json', serve_well_known),
+    
     # PWA — toujours en premier
     path('sw.js', serve_sw, name='sw'),
     path('manifest.json', serve_manifest, name='manifest'),
@@ -98,6 +106,7 @@ urlpatterns = [
     # API JSON — formulaire single-page + sync hors-ligne
     path('api/fiche/creer/', views.api_fiche_creer, name='api_fiche_creer'),
     path('api/fiche/<int:pk>/modifier/', views.api_fiche_modifier, name='api_fiche_modifier'),
+    path('api/fiche/<int:pk>/supprimer/', views.api_fiche_supprimer, name='api_fiche_supprimer'),
     path('api/sync/', views.api_sync, name='api_sync'),
     
     # API Export — téléchargement fiches
