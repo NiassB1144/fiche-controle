@@ -974,14 +974,14 @@ try {
   const params = new URLSearchParams(window.location.search);
   if (params.has('local_id')) {
     const lid = params.get('local_id');
-    if (lid && typeof getFicheByLocalId === 'function') {
-      getFicheByLocalId(lid).then(obj => {
+    if (lid && window.FicheApp && typeof window.FicheApp.getFicheByLocalId === 'function') {
+      window.FicheApp.getFicheByLocalId(lid).then(obj => {
         if (obj) {
           editingLocalId = obj.local_id;
           if (obj.server_pk) editingPk = obj.server_pk;
           remplirFormulaire(obj);
         }
-      });
+      }).catch(e => console.error('Erreur chargement local_id:', e));
     }
   }
 } catch (e) { /* ignore */ }

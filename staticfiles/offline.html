@@ -289,14 +289,14 @@
                   ${f.lieu ? `📍 ${escapeHtml(f.lieu)}` : ''}
                 </div>
               </div>
-              <div class="fiche-actions">
+            <div class="fiche-actions">
                 <span class="badge-pending ${f.synced ? 'badge-synced' : ''}">
                   ${f.synced ? '✓ Synchronisé' : '⏳ En attente'}
                 </span>
-                <a href="/fiches/nouvelle/?local_id=${encodeURIComponent(f.local_id)}">
+                <a href="/fiches/creer/?local_id=${encodeURIComponent(f.local_id)}">
                   ✏️ Modifier
                 </a>
-                <button class="delete-btn" onclick="supprimerFicheLocale(${f.local_id})" title="Supprimer">
+                <button class="delete-btn" onclick="supprimerFicheLocale('${f.local_id}')" title="Supprimer">
                   🗑️
                 </button>
               </div>
@@ -328,10 +328,13 @@
         const db = await ouvrirDB();
         const tx = db.transaction(STORE, 'readwrite');
         const store = tx.objectStore(STORE);
-        store.delete(localId);
+        
+        // Convertir en string pour correspondre au keyPath
+        const id = String(localId);
+        store.delete(id);
         
         tx.oncomplete = () => {
-          console.log('[Offline] Fiche supprimée:', localId);
+          console.log('[Offline] Fiche supprimée:', id);
           afficherFichesLocales(); // Rafraîchir la liste
           showTemporaryMessage('Fiche supprimée', 'success');
         };

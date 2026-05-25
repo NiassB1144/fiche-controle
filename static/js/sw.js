@@ -1,8 +1,8 @@
 // ========================================================================
-// SERVICE WORKER — fiche-controle-v12 (IndexedDB + offline optimisé)
+// SERVICE WORKER — fiche-controle-v13 (IndexedDB + offline optimisé)
 // ========================================================================
 
-const CACHE_NAME = 'fiche-controle-v12';
+const CACHE_NAME = 'fiche-controle-v13';
 const DB_NAME = 'ficheControleDB';
 const DB_VERSION = 5; // Synchronisé avec app-offline-unified.js
 const STORE = 'fiches_locales';
@@ -10,9 +10,7 @@ const STORE = 'fiches_locales';
 const ASSETS = [
   '/',
   '/fiches/',
-  '/fiches/creer/',
   '/connexion/',
-  '/offline.html',
   '/static/css/bootstrap.min.css',
   '/static/css/style.css',
   '/static/css/fiche-mobile.css',
@@ -262,8 +260,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ── API GET : Network First + cache ────────────────────────────────────
+  // ── API GET/POST/DELETE : Network First + cache (sauf DELETE/POST) ─────
   if (url.pathname.startsWith('/api/')) {
+    // Ne pas mettre en cache les requêtes DELETE, POST, PUT
+    if (event.request.method === 'DELETE' || event.request.method === 'POST' || event.request.method === 'PUT') {
+      event.respondWith(
+        fetch(event.request).catch(() =>
+          new Response(JSON.stringify({ 
+            error: 'offline', 
+            message: 'Vous êtes hors-ligne. Requête ' + event.request.method + ' impossible.',
+            data: []
+          }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+          })
+        )
+      );
+      return;
+    }
+    
+    // GET : Network First + cache
     event.respondWith(
       fetch(event.request)
         .then((response) => {
@@ -299,19 +315,30 @@ self.addEventListener('fetch', (event) => {
           if (response.type === 'opaqueredirect') {
             return response;
           }
+          // Sauvegarder les réponses OK en cache (normalisé: sans query string)
           if (response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            const baseUrl = event.request.url.split('?')[0];
+            caches.open(CACHE_NAME).then((cache) => cache.put(baseUrl, clone));
           }
+          // Retourner la réponse (même les 404, 500, etc.)
           return response;
         })
-        .catch(() =>
-          caches.match(event.request).then((cached) => {
-            if (cached) return cached;
-            return caches.match('/offline.html')
-              .then((offlinePage) => offlinePage || caches.match('/'));
-          })
-        )
+        .catch(() => {
+          // Erreur réseau = mode hors-ligne
+          // Essayer de retourner la version en cache (normalisé: sans query string)
+          const baseUrl = event.request.url.split('?')[0];
+          return caches.match(baseUrl)
+            .then((cached) => {
+              if (cached) return cached;
+              // Page pas en cache + pas de réseau = erreur 503
+              return new Response('Connexion perdue - page non disponible en cache', {
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: new Headers({ 'Content-Type': 'text/plain; charset=utf-8' })
+              });
+            });
+        })
     );
     return;
   }

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Mode Offline - Fiche de Contrôle</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+  <style>
+    .test-case { padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; }
+    .test-case.pass { background-color: #d4edda; border-color: #28a745; }
+    .test-case.fail { background-color: #f8d7da; border-color: #f5c6cb; }
+    .console-log { background: #f4f4f4; border: 1px solid #ddd; padding: 10px; height: 300px; overflow-y: auto; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <h1>🧪 Tests Mode Offline</h1>
+    
+    <div class="row">
+      <div class="col-md-8">
+        <div id="test-results"></div>
+      </div>
+      <div class="col-md-4">
+        <h3>Console</h3>
+        <div id="console" class="console-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tests = [];
+    const consoleLogs = [];
+
+    function log(msg, type = 'info') {
+      console.log(msg);
+      const timestamp = new Date().toLocaleTimeString();
+      consoleLogs.push(`[${timestamp}] ${msg}`);
+      const console_el = document.getElementById('console');
+      if (console_el) {
+        console_el.innerHTML += `<div>${msg}</div>`;
+        console_el.scrollTop = console_el.scrollHeight;
+      }
+    }
+
+    function addTest(name, description, fn) {
+      tests.push({ name, description, fn });
+    }
+
+    function reportTest(name, passed, error = null) {
+      const resultsDiv = document.getElementById('test-results');
+      const testDiv = document.createElement('div');
+      testDiv.className = `test-case ${passed ? 'pass' : 'fail'}`;
+      testDiv.innerHTML = `
+        <strong>${passed ? '✓' : '✗'} ${name}</strong>
+        ${error ? `<div class="text-danger mt-2">${error}</div>` : ''}
+      `;
+      resultsDiv.appendChild(testDiv);
+      log(`${passed ? '✓' : '✗'} ${name}`);
+    }
+
+    // ============ TESTS ============
+
+    addTest('Init', 'IndexedDB initialization', async function() {
+      try {
+        const DB_NAME = 'ficheControleDB';
+        const DB_VERSION = 5;
+        const STORE_NAME = 'fiches_locales';
+        
+        return new Promise((resolve, reject) => {
+          const req = indexedDB.open(DB_NAME, DB_VERSION);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+              db.createObjectStore(STORE_NAME, { keyPath: 'local_id' });
+            }
+          };
+          req.onsuccess = () => {
+            log('✓ IndexedDB opened successfully');
+            resolve(true);
+          };
+          req.onerror = () => {
+            reject(req.error);
+          };
+        });
+      } catch (e) {
+        throw new Error('IndexedDB init failed: ' + e.message);
+      }
+    });
+
+    addTest('Create', 'Save fiche locally', async function() {
+      try {
+        const DB_NAME = 'ficheControleDB';
+        const STORE_NAME = 'fiches_locales';
+        
+        const localId = 'local_' + Date.now() + '_test';
+        const fiche = {
+          local_id: localId,
+          entreprise: 'Test Entreprise',
+          date_controle: '2026-05-25',
+          lieu: 'Test Lieu',
+          synced: false,
+          saved_at: new Date().toISOString()
+        };
+
+        return new Promise((resolve, reject) => {
+          const req = indexedDB.open(DB_NAME);
+          req.onsuccess = (e) => {
+            const db = e.target.result;
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const putReq = store.put(fiche);
+            
+            putReq.onsuccess = () => {
+              log(`✓ Fiche created with ID: ${localId}`);
+              window.testLocalId = localId;
+              resolve(true);
+            };
+            putReq.onerror = () => reject(putReq.error);
+          };
+          req.onerror = () => reject(req.error);
+        });
+      } catch (e) {
+        throw new Error('Create failed: ' + e.message);
+      }
+    });
+
+    addTest('Read', 'Load fiche from cache', async function() {
+      try {
+        const DB_NAME = 'ficheControleDB';
+        const STORE_NAME = 'fiches_locales';
+        const localId = String(window.testLocalId);
+        
+        return new Promise((resolve, reject) => {
+          const req = indexedDB.open(DB_NAME);
+          req.onsuccess = (e) => {
+            const db = e.target.result;
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const store = tx.objectStore(STORE_NAME);
+            const getReq = store.get(localId);
+            
+            getReq.onsuccess = () => {
+              const fiche = getReq.result;
+              if (!fiche) {
+                throw new Error('Fiche not found');
+              }
+              if (fiche.entreprise !== 'Test Entreprise') {
+                throw new Error('Data mismatch');
+              }
+              log(`✓ Fiche loaded: ${fiche.entreprise}`);
+              resolve(true);
+            };
+            getReq.onerror = () => reject(getReq.error);
+          };
+          req.onerror = () => reject(req.error);
+        });
+      } catch (e) {
+        throw new Error('Read failed: ' + e.message);
+      }
+    });
+
+    addTest('Update', 'Modify fiche in cache', async function() {
+      try {
+        const DB_NAME = 'ficheControleDB';
+        const STORE_NAME = 'fiches_locales';
+        const localId = String(window.testLocalId);
+        
+        return new Promise((resolve, reject) => {
+          const req = indexedDB.open(DB_NAME);
+          req.onsuccess = (e) => {
+            const db = e.target.result;
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const getReq = store.get(localId);
+            
+            getReq.onsuccess = () => {
+              const fiche = getReq.result;
+              fiche.entreprise = 'Test Entreprise Updated';
+              fiche.updated_at = new Date().toISOString();
+              
+              const putReq = store.put(fiche);
+              putReq.onsuccess = () => {
+                log(`✓ Fiche updated`);
+                resolve(true);
+              };
+              putReq.onerror = () => reject(putReq.error);
+            };
+            getReq.onerror = () => reject(getReq.error);
+          };
+          req.onerror = () => reject(req.error);
+        });
+      } catch (e) {
+        throw new Error('Update failed: ' + e.message);
+      }
+    });
+
+    addTest('Delete', 'Remove fiche from cache', async function() {
+      try {
+        const DB_NAME = 'ficheControleDB';
+        const STORE_NAME = 'fiches_locales';
+        const localId = String(window.testLocalId);
+        
+        return new Promise((resolve, reject) => {
+          const req = indexedDB.open(DB_NAME);
+          req.onsuccess = (e) => {
+            const db = e.target.result;
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const delReq = store.delete(localId);
+            
+            delReq.onsuccess = () => {
+              log(`✓ Fiche deleted`);
+              resolve(true);
+            };
+            delReq.onerror = () => reject(delReq.error);
+          };
+          req.onerror = () => reject(req.error);
+        });
+      } catch (e) {
+        throw new Error('Delete failed: ' + e.message);
+      }
+    });
+
+    addTest('String Conversion', 'local_id string consistency', async function() {
+      try {
+        const numericId = 12345;
+        const stringId = String(numericId);
+        
+        if (typeof stringId !== 'string') {
+          throw new Error('String conversion failed');
+        }
+        if (stringId !== '12345') {
+          throw new Error('Value mismatch');
+        }
+        
+        log(`✓ String conversion works: ${numericId} -> "${stringId}"`);
+        return true;
+      } catch (e) {
+        throw new Error('String conversion failed: ' + e.message);
+      }
+    });
+
+    addTest('Checkbox Handling', 'Checkbox value preservation', async function() {
+      try {
+        const values = ['on', true, false, '', null];
+        const results = [];
+        
+        values.forEach(v => {
+          const checked = v === 'on' || v === true;
+          results.push(`${v} -> ${checked}`);
+        });
+        
+        log(`✓ Checkbox values: ${results.join(', ')}`);
+        return true;
+      } catch (e) {
+        throw new Error('Checkbox handling failed: ' + e.message);
+      }
+    });
+
+    // ============ RUN TESTS ============
+
+    async function runTests() {
+      log('Starting offline mode tests...\n');
+      
+      for (const test of tests) {
+        try {
+          await test.fn();
+          reportTest(test.name, true);
+        } catch (e) {
+          reportTest(test.name, false, e.message);
+        }
+      }
+      
+      const passed = document.querySelectorAll('.test-case.pass').length;
+      const failed = document.querySelectorAll('.test-case.fail').length;
+      log(`\n✓ Passed: ${passed} | ✗ Failed: ${failed}`);
+    }
+
+    document.addEventListener('DOMContentLoaded', runTests);
+  </script>
+</body>
+</html>

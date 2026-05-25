@@ -240,7 +240,7 @@
               <a href="{% url 'modifier_fiche' fiche.pk %}" class="btn btn-outline-primary btn-icon" title="Modifier">
                 <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
               </a>
-              <button onclick="window.FicheApp.deleteFicheServer({{ fiche.pk }})" class="btn btn-outline-danger btn-icon" title="Supprimer">
+              <button class="btn btn-outline-danger btn-icon btn-delete-server" data-fiche-pk="{{ fiche.pk }}" onclick="window.deleteServerFiche({{ fiche.pk }}); return false;" title="Supprimer">
                 <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
               </button>
             </div>
@@ -359,7 +359,7 @@
                 <a href="/fiches/creer/?local_id=${fiche.local_id}" class="btn btn-outline-primary btn-icon" title="Modifier">
                   <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
                 </a>
-                <button onclick="supprimerFicheLocale('${fiche.local_id}')" class="btn btn-outline-danger btn-icon" title="Supprimer">
+                <button class="btn btn-outline-danger btn-icon btn-delete-local-liste" data-local-id="${fiche.local_id}" onclick="window.deleteLocalFiche('${fiche.local_id}'); return false;" title="Supprimer">
                   <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
                 </button>
               </div>
@@ -403,11 +403,144 @@
     if (!confirm('Supprimer définitivement cette fiche locale ?')) return;
     
     if (window.FicheApp && typeof window.FicheApp.deleteFiche === 'function') {
-      await window.FicheApp.deleteFiche(localId);
-      await afficherFichesLocales();
-      showToast('Fiche locale supprimée', 'success');
+      try {
+        await window.FicheApp.deleteFiche(localId);
+        await afficherFichesLocales();
+        updateEmptyState();
+        updateTotalCount();
+        showToast('Fiche locale supprimée', 'success');
+      } catch (error) {
+        console.error('[Liste] Erreur suppression locale:', error);
+        showToast('Erreur lors de la suppression', 'danger');
+      }
+    } else {
+      showToast('Application non prête', 'warning');
     }
   };
+  
+  // ✅ Appels directs pour DELETE - appel API DIRECT
+  
+  window.deleteServerFiche = async function(pk) {
+    console.log('[Liste] DELETE serveur, pk=', pk);
+    
+    try {
+      // Récupérer le CSRF token
+      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+      const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+      
+      console.log('[Liste] Appel API DELETE /api/fiche/' + pk + '/supprimer/');
+      
+      const response = await fetch(`/api/fiche/${pk}/supprimer/`, {
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': csrfToken }
+      });
+      
+      if (response.ok) {
+        console.log('[Liste] ✓ Suppression réussie!');
+        showToast('Fiche supprimée avec succès', 'success');
+        setTimeout(() => { window.location.href = '/fiches/'; }, 1000);
+      } else {
+        const data = await response.json();
+        console.error('[Liste] ✗ Erreur API:', data);
+        showToast('Erreur: ' + (data.error || 'Suppression échouée'), 'danger');
+      }
+    } catch (error) {
+      console.error('[Liste] Erreur delete serveur:', error);
+      showToast('Erreur réseau: ' + error.message, 'danger');
+    }
+  };
+  
+  window.deleteLocalFiche = async function(localId) {
+    console.log('[Liste] DELETE local, localId=', localId);
+    
+    if (!window.FicheApp || !window.FicheApp.deleteFiche) {
+      console.error('[Liste] ❌ FicheApp.deleteFiche indisponible!');
+      alert('Application non initialisée. Veuillez recharger la page.');
+      return;
+    }
+    
+    try {
+      console.log('[Liste] Appel deleteFiche...');
+      await window.FicheApp.deleteFiche(localId);
+      await afficherFichesLocales();
+      updateEmptyState();
+      updateTotalCount();
+      showToast('Fiche locale supprimée', 'success');
+    } catch (error) {
+      console.error('[Liste] Erreur delete local:', error);
+      showToast('Erreur lors de la suppression: ' + error.message, 'danger');
+    }
+  };
+  
+  // ✅ AUSSI: Fonction pour attacher le listener DELETE (pour futur)
+  function attachDeleteListeners() {
+    console.log('[Liste] 🎣 Attachement des listeners de suppression...');
+    
+    // EVENT DELEGATION UNIQUE pour DELETE
+    document.addEventListener('click', async (e) => {
+      const deleteBtn = e.target.closest('.btn-delete-server');
+      const deleteLocalBtn = e.target.closest('.btn-delete-local-liste');
+      
+      // Delete fiche serveur
+      if (deleteBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const pk = parseInt(deleteBtn.dataset.fichePk, 10);
+        console.log('[Liste] 🗑️ DELETE serveur (delegation), pk=', pk);
+        if (window.FicheApp?.deleteFicheServer) {
+          await window.FicheApp.deleteFicheServer(pk);
+        } else {
+          console.error('[Liste] ❌ deleteFicheServer pas disponible!');
+        }
+      }
+      
+      // Delete fiche locale
+      if (deleteLocalBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const localId = deleteLocalBtn.dataset.localId;
+        console.log('[Liste] 🗑️ DELETE local (delegation), localId=', localId);
+        if (window.FicheApp?.deleteFiche) {
+          if (!confirm('Supprimer définitivement cette fiche locale ?')) return;
+          await window.FicheApp.deleteFiche(localId);
+          await afficherFichesLocales();
+          showToast('Fiche locale supprimée', 'success');
+        } else {
+          console.error('[Liste] ❌ deleteFiche pas disponible!');
+        }
+      }
+    }, true); // Capture phase
+    
+    console.log('[Liste] ✅ Listeners DELETE attachés et prêts!');
+  }
+  
+  // Écouter l'événement FicheAppReady
+  // OU si déjà chargé, déclencher immédiatement
+  function setupDeleteListeners() {
+    console.log('[Liste] 🎯 setupDeleteListeners() appelée');
+    console.log('[Liste] window.FicheAppReady?', window.FicheAppReady);
+    console.log('[Liste] window.FicheApp?', !!window.FicheApp);
+    
+    if (window.FicheApp && window.FicheApp.deleteFicheServer) {
+      attachDeleteListeners();
+    } else {
+      console.warn('[Liste] ⚠️ FicheApp pas encore chargé');
+    }
+  }
+  
+  // Écouter l'événement FicheAppReady
+  document.addEventListener('FicheAppReady', (e) => {
+    console.log('[Liste] 🎉 Événement FicheAppReady reçu!');
+    setupDeleteListeners();
+  });
+  
+  // Vérifier si déjà chargé (au cas où l'événement a été dispatché AVANT qu'on attache le listener)
+  if (window.FicheAppReady) {
+    console.log('[Liste] ℹ️ FicheAppReady déjà true, setup immédiatement');
+    setupDeleteListeners();
+  } else {
+    console.log('[Liste] ⏳ En attente de FicheAppReady...');
+  }
   
   // Synchronisation
   window.syncAll = async function() {

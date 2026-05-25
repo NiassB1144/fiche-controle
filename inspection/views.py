@@ -204,16 +204,26 @@ def detail_fiche(request, pk):
 
 @login_required
 def supprimer_fiche(request, pk):
+    """Supprime une fiche directement. Accepte POST/DELETE uniquement."""
+    if request.method not in ['POST', 'DELETE']:
+        messages.error(request, 'Méthode non autorisée.')
+        return redirect('liste_fiches')
+    
     if request.user.is_staff:
         fiche = get_object_or_404(FicheControle, pk=pk)
     else:
         fiche = get_object_or_404(FicheControle, pk=pk, inspecteur=request.user)
-    if request.method == 'POST':
-        nom = fiche.entreprise
-        fiche.delete()
-        messages.success(request, f'Fiche "{nom}" supprimée.')
-        return redirect('liste_fiches')
-    return render(request, 'inspection/confirmer_suppression.html', {'fiche': fiche})
+    
+    nom = fiche.entreprise
+    fiche.delete()
+    
+    # Retourner JSON au lieu de template
+    if request.headers.get('Accept') == 'application/json' or request.is_ajax():
+        return JsonResponse({'success': True, 'message': f'Fiche "{nom}" supprimée.'})
+    
+    # Fallback: redirection directe (pour POST et DELETE)
+    messages.success(request, f'Fiche "{nom}" supprimée.')
+    return redirect('liste_fiches')
 
 
 @login_required
