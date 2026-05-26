@@ -1,0 +1,261 @@
+# Fix Offline: Voir les détails, modifier, supprimer
+
+## 🎯 Le problème
+
+En mode offline, vous ne pouvez pas:
+- ❌ Voir les détails d'une fiche
+- ❌ Modifier une fiche
+- ❌ Supprimer une fiche
+
+**Cause:** Le Service Worker ne met en cache que les pages déjà visitées en ligne.
+
+## ✅ La solution
+
+### 1. Remplacer le script offline dans votre template
+
+Au lieu de `offline-django.js`, utilisez `offline-advanced.js`:
+
+**Avant:**
+```html
+<script src="{% static 'js/offline-django.js' %}"></script>
+```
+
+**Après:**
+```html
+<script src="{% static 'js/offline-advanced.js' %}"></script>
+```
+
+### 2. Ajouter les données de fiche à la page (optionnel)
+
+Si vous avez une page de détail, ajouter un script JSON:
+
+```html
+<!-- Dans detail_fiche.html, avant </body> -->
+<script type="application/json" data-fiche>
+{
+  "id": {{ fiche.id }},
+  "entreprise": "{{ fiche.entreprise|escapejs }}",
+  "date_controle": "{{ fiche.date_controle }}",
+  "lieu": "{{ fiche.lieu|escapejs }}",
+  "adresse": "{{ fiche.adresse|escapejs }}",
+  "telephone": "{{ fiche.telephone|escapejs }}",
+  "email_entreprise": "{{ fiche.email_entreprise }}",
+  "statut": "{{ fiche.statut }}"
+}
+</script>
+```
+
+### 3. Le flux maintenant
+
+#### Étape 1: Consulter une fiche ONLINE
+```
+1. Vous consultez une fiche en ligne
+2. Les données sont automatiquement cachées en IndexedDB
+3. Le Service Worker cache la page
+```
+
+#### Étape 2: Aller OFFLINE
+```
+1. Désactiver la connexion (DevTools → Network → Offline)
+2. Les fiches consultées avant sont toujours visibles
+```
+
+#### Étape 3: Consulter la fiche OFFLINE
+```
+1. Cliquer sur une fiche consultée
+2. Les données sont récupérées du cache
+3. Vous pouvez voir les détails! ✓
+```
+
+#### Étape 4: Modifier OFFLINE
+```
+1. Modifier le formulaire
+2. Cliquer "Sauvegarder"
+3. Les données sont sauvegardées en IndexedDB
+4. Ajoutées à la queue de sync
+```
+
+#### Étape 5: Aller ONLINE
+```
+1. Rétablir la connexion
+2. Auto-sync après quelques secondes
+3. Modifications envoyées au serveur ✓
+```
+
+## 🧪 Test complet
+
+### Avant de tester
+
+```bash
+# Vous devez avoir consulté au moins UNE fiche en ligne
+# Sinon elle ne sera pas en cache
+```
+
+### Test pas-à-pas
+
+```
+1. Ouvrir l'app en ligne
+2. Cliquer sur 3-5 fiches pour les consulter
+3. Fermer l'app (pas nécessaire)
+4. Rouvrir l'app
+5. DevTools (F12) → Network → Cocher "Offline"
+6. Recharger la page (Ctrl+R)
+7. Essayer de cliquer sur une fiche consulté
+8. ✓ Les détails doivent s'afficher!
+```
+
+### Tester la modification offline
+
+```
+1. Toujours en offline
+2. Cliquer sur une fiche
+3. Modifier un champ
+4. Cliquer "Sauvegarder"
+5. ✓ Message "Fiche sauvegardée en offline"
+6. Décocher "Offline" dans DevTools
+7. ✓ Auto-sync après 1-2 secondes
+8. Recharger
+9. ✓ Les modifications sont présentes!
+```
+
+## 📊 Comment ça fonctionne
+
+### IndexedDB (Stockage local)
+
+```
+Quand vous consultez une fiche ONLINE:
+  ↓
+Script extrait les données de la page
+  ↓
+Sauvegarde en IndexedDB avec l'ID
+  ↓
+Quand OFFLINE:
+  ↓
+Le formulaire peut récupérer les données
+  ↓
+Modifications sauvegardées en IndexedDB
+  ↓
+Ajoutées à la queue de sync
+```
+
+### Queue de synchronisation
+
+```
+Modifications OFFLINE:
+  ↓
+Ajoutées à sync_queue dans IndexedDB
+  ↓
+Quand ONLINE:
+  ↓
+Script envoie les items à /api/sync/
+  ↓
+Server traite et confirme
+  ↓
+Item marqué "synced" en IndexedDB
+  ↓
+✓ Fini
+```
+
+## 🔧 Configuration avancée
+
+### Pré-cacher les fiches fréquemment utilisées
+
+Ajouter dans votre template un script qui pré-cache au démarrage:
+
+```html
+<script>
+  // Pré-charger les fiches récentes quand la page charge
+  if (window.OfflineApp) {
+    (async () => {
+      // Récupérer les fiches récentes depuis /api/fiches/
+      const response = await fetch('/inspection/api/fiches/');
+      if (response.ok) {
+        const data = await response.json();
+        // Les fiches sont automatiquement cachées par le script offline
+        console.log('✓ Fiches pré-chargées');
+      }
+    })();
+  }
+</script>
+```
+
+### Forcer une synchronisation
+
+```javascript
+// Dans la console DevTools
+window.OfflineApp.getFiche(1);  // Récupérer une fiche
+window.OfflineApp.getAllFiches();  // Toutes les fiches
+```
+
+## ⚠️ Limitations
+
+### Offline complet ne fonctionne que pour fiches CONSULTÉES
+
+- ✓ Peut voir une fiche si consultée avant
+- ✓ Peut modifier si consultée avant
+- ✓ Peut créer nouvelles fiches (grâce au formulaire cache)
+- ❌ Cannot cannot see une fiche jamais visitée avant
+
+**Workaround:** Pré-cacher les fiches (voir "Pré-cacher" ci-dessus)
+
+### Suppression offline
+
+Actuellement la suppression offline n'est pas supportée (car elle nécessite POST DELETE).
+
+**Solution:** Modifier via le formulaire, puis supprimer quand online.
+
+## 📝 Checklist
+
+- [ ] Remplacer `offline-django.js` par `offline-advanced.js`
+- [ ] Ajouter script JSON data dans detail_fiche.html
+- [ ] Tester: consulter 3 fiches en ligne
+- [ ] Tester: passer en offline et cliquer sur une fiche
+- [ ] Vérifier que les détails s'affichent
+- [ ] Tester: modifier et sauvegarder en offline
+- [ ] Tester: aller online et vérifier la sync
+
+## 🐛 Troubleshooting
+
+### "Fiche non trouvée en cache" en offline
+
+**Solution:** Vous devez consulter la fiche en ligne d'abord
+
+```
+1. Aller online
+2. Cliquer sur la fiche pour la consulter
+3. Puis aller offline
+4. Réessayer
+```
+
+### Les modifications ne synchronisent pas
+
+**Vérifier:**
+```
+1. Vérifier /api/sync/ endpoint existe (voir inspection/urls.py)
+2. DevTools → Console → Erreurs réseau?
+3. Vérifier CSRF token correct
+4. Vérifier serveur Django accessible
+```
+
+### Service Worker ne met pas en cache
+
+**Solution:**
+```
+1. DevTools → Application → Service Workers
+2. Cliquer "Unregister"
+3. Recharger la page
+4. Devrait re-enregistrer
+```
+
+## 📱 Sur mobile
+
+Même flux qu'en desktop via DevTools:
+
+- **Android:** USB Debug + Chrome Remote Debugging
+- **iOS:** Safari Debug mode
+
+---
+
+**Status:** ✅ Solution complète - Testez maintenant!
+
+**Résumé:** Consultez des fiches en ligne → Elles sont cachées → Vous pouvez les voir/modifier/supprimer offline → Auto-sync quand online

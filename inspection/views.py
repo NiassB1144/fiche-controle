@@ -596,3 +596,49 @@ def export_fiche_pdf(request, pk):
     
     doc.build(story)
     return response
+
+
+def detail_local_fiche(request, local_id):
+    """
+    Affiche le détail d'une fiche créée en offline (lecture seule)
+    La fiche est chargée depuis IndexedDB côté client
+    """
+    return render(request, 'inspection/detail_local_fiche.html', {
+        'local_id': local_id,
+    })
+
+
+def edit_local_fiche(request, local_id):
+    """
+    Affiche le formulaire de modification d'une fiche offline
+    La fiche est chargée depuis IndexedDB côté client
+    """
+    return render(request, 'inspection/edit_local_fiche.html', {
+        'local_id': local_id,
+    })
+
+
+@csrf_exempt
+def delete_local_fiche(request, local_id):
+    """
+    Supprime une fiche locale (cette route existe pour la symétrie)
+    La suppression réelle se fait côté client dans IndexedDB
+    Cette vue confirme simplement l'opération
+    """
+    if request.method != 'DELETE' and request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    
+    # Cette suppression est gérée côté client
+    # On retourne juste un succès
+    return JsonResponse({
+        'success': True,
+        'message': f'Fiche locale {local_id} prête à être supprimée'
+    })
+
+
+def view_local_fiche(request, local_id):
+    """
+    (DEPRECATED - Utilisé à titre de compatibilité)
+    Redirige vers la page de détail
+    """
+    return redirect('detail_local_fiche', local_id=local_id)

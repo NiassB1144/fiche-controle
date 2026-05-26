@@ -1,0 +1,85 @@
+{
+  "name": "Fiche Contrôle - Inspection du Travail",
+  "short_name": "Fiche Contrôle",
+  "description": "Application de gestion des fiches de contrôle en mode offline complet",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#1f2937",
+  "categories": ["productivity", "utilities"],
+  "screenshots": [
+    {
+      "src": "/icons/screenshot-small.png",
+      "sizes": "192x192",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/icons/screenshot-large.png",
+      "sizes": "512x512",
+      "form_factor": "wide"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Créer une fiche",
+      "short_name": "Nouvelle fiche",
+      "description": "Créer une nouvelle fiche de contrôle",
+      "url": "/fiches/new",
+      "icons": [
+        {
+          "src": "/icons/shortcut-new.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Mes fiches",
+      "short_name": "Fiches",
+      "description": "Voir toutes mes fiches",
+      "url": "/fiches",
+      "icons": [
+        {
+          "src": "/icons/shortcut-fiches.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "titre",
+      "text": "description",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["application/json", ".json"]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiche (Mode Offline)</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; }
+        .loading { text-align: center; margin: 50px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="alert alert-warning">
+            <strong>⚠️ Mode Offline</strong> - Chargement des données locales...
+        </div>
+        <div id="content" class="loading">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Chargement...</span>
+            </div>
+            <p>Chargement de la fiche...</p>
+        </div>
+    </div>
+
+    <script src="/static/js/offline-v4.js"></script>
+    <script>
+        // Extraire local_id depuis l'URL
+        const match = window.location.pathname.match(/\/fiche\/local\/([^\/]+)/);
+        const localId = match ? match[1] : null;
+
+        if (!localId) {
+            document.getElementById('content').innerHTML = 
+                '<div class="alert alert-danger">ID local manquant</div>';
+        } else if (window.OfflineSystem) {
+            // Charger la fiche depuis le cache
+            window.OfflineSystem.getFiche(localId).then(fiche => {
+                if (!fiche) {
+                    document.getElementById('content').innerHTML = 
+                        '<div class="alert alert-warning">Fiche non trouvée en cache</div>';
+                    return;
+                }
+
+                // Afficher les données
+                let html = `<div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="mb-0">${fiche.entreprise || 'Fiche'}</h3>
+                    </div>
+                    <div class="card-body">`;
+
+                for (const [key, value] of Object.entries(fiche)) {
+                    if (value && key !== 'id' && key !== 'local_id') {
+                        html += `<p><strong>${key}:</strong> ${value}</p>`;
+                    }
+                }
+
+                html += `</div></div>`;
+                document.getElementById('content').innerHTML = html;
+            });
+        } else {
+            document.getElementById('content').innerHTML = 
+                '<div class="alert alert-danger">Système offline non chargé</div>';
+        }
+    </script>
+</body>
+</html>

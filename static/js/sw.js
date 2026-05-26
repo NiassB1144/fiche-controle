@@ -10,12 +10,14 @@ const STORE = 'fiches_locales';
 const ASSETS = [
   '/',
   '/fiches/',
+  '/fiches/creer/',
   '/connexion/',
   '/static/css/bootstrap.min.css',
   '/static/css/style.css',
   '/static/css/fiche-mobile.css',
   '/static/js/bootstrap.bundle.min.js',
   '/static/js/app-offline-unified.js',
+  '/static/js/offline-v4.js',
   '/static/icons/bootstrap-icons.css',
   '/manifest.json',
   '/static/icons/icon-192.png',
@@ -63,6 +65,14 @@ self.addEventListener('activate', (event) => {
       })
   );
 });
+
+// ── Sync automatique périodique ──────────────────────────────────────────
+setInterval(async () => {
+  if (navigator.onLine) {
+    console.log('[SW] 🔄 Sync périodique...');
+    await syncFiches();
+  }
+}, 30000);
 
 // ── IndexedDB helpers ───────────────────────────────────────────────────
 function ouvrirDB() {
@@ -215,6 +225,195 @@ async function syncFiches() {
   return { synced, failed };
 }
 
+function serveLocalFicheHTML(localId) {
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiche - Inspection du Travail</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/icons/bootstrap-icons.css">
+    <style>
+        body { background: #f5f7fa; padding: 2rem 0; }
+        .container-lg { max-width: 1200px; }
+        .fiche-card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .fiche-field { margin-bottom: 15px; }
+        .fiche-label { font-weight: 600; color: #333; font-size: 0.9rem; }
+        .fiche-value { background: #f8f9fa; padding: 12px; border-radius: 6px; margin-top: 6px; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container-lg">
+        <a href="/inspection/fiches/" class="btn btn-outline-secondary btn-sm mb-3">
+            <i class="bi bi-arrow-left"></i> Retour à la liste
+        </a>
+
+        <div class="row gap-3">
+            <div class="col-lg-8">
+                <div class="fiche-card p-4">
+                    <h3 id="fiche-titre" class="mb-4">Chargement...</h3>
+                    <div id="fiche-content">
+                        <div class="text-center py-5">
+                            <div class="spinner-border mb-3" role="status"></div>
+                            <p class="text-muted">Chargement des données...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="fiche-card p-4 sticky-top" style="top: 20px;">
+                    <h5 class="mb-3">Actions</h5>
+                    <div class="d-grid gap-2">
+                        <button id="edit-btn" class="btn btn-primary"><i class="bi bi-pencil"></i> Modifier</button>
+                        <button id="delete-btn" class="btn btn-danger"><i class="bi bi-trash3"></i> Supprimer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Modifier la fiche</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-form"></form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" id="save-form-btn">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const localId = "${localId}";
+        let ficheData = null;
+
+        async function openDB() {
+            return new Promise((r, x) => {
+                const req = indexedDB.open('FicheControleDB', 5);
+                req.onerror = () => x(req.error);
+                req.onsuccess = () => r(req.target.result);
+            });
+        }
+
+        async function getFicheFromDB(id) {
+            const db = await openDB();
+            return new Promise((r, x) => {
+                const tx = db.transaction(['fiches'], 'readonly');
+                const req = tx.objectStore('fiches').get(id);
+                req.onerror = () => x(req.error);
+                req.onsuccess = () => r(req.result);
+            });
+        }
+
+        async function saveFicheToDB(data) {
+            const db = await openDB();
+            return new Promise((r, x) => {
+                const tx = db.transaction(['fiches'], 'readwrite');
+                const req = tx.objectStore('fiches').put(data);
+                req.onerror = () => x(req.error);
+                req.onsuccess = () => r(data);
+            });
+        }
+
+        async function deleteFicheFromDB(id) {
+            const db = await openDB();
+            return new Promise((r, x) => {
+                const tx = db.transaction(['fiches'], 'readwrite');
+                const req = tx.objectStore('fiches').delete(id);
+                req.onerror = () => x(req.error);
+                req.onsuccess = () => r();
+            });
+        }
+
+        async function addToSyncQueue(action, data) {
+            const db = await openDB();
+            return new Promise((r, x) => {
+                const tx = db.transaction(['sync_queue'], 'readwrite');
+                const req = tx.objectStore('sync_queue').add({
+                    action, data, status: 'pending',
+                    created_at: new Date().toISOString(), attempts: 0
+                });
+                req.onerror = () => x(req.error);
+                req.onsuccess = () => r();
+            });
+        }
+
+        async function loadFiche() {
+            try {
+                ficheData = await getFicheFromDB(localId);
+                if (!ficheData) {
+                    document.getElementById('fiche-content').innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Fiche non trouvée</div>';
+                    return;
+                }
+                renderFiche(ficheData);
+            } catch (error) {
+                document.getElementById('fiche-content').innerHTML = '<div class="alert alert-danger">Erreur: ' + error.message + '</div>';
+            }
+        }
+
+        function renderFiche(data) {
+            document.getElementById('fiche-titre').textContent = data.entreprise || 'Fiche sans nom';
+            let html = '';
+            for (const [key, value] of Object.entries(data)) {
+                if (!['id', 'local_id', 'cached_at', 'updated_at'].includes(key) && value) {
+                    html += \`<div class="fiche-field"><div class="fiche-label">\${key.replace(/_/g, ' ')}</div><div class="fiche-value">\${value}</div></div>\`;
+                }
+            }
+            document.getElementById('fiche-content').innerHTML = html || '<p class="text-muted">Aucune donnée</p>';
+        }
+
+        document.getElementById('edit-btn').addEventListener('click', () => {
+            if (!ficheData) return;
+            let form = '';
+            for (const [key, value] of Object.entries(ficheData)) {
+                if (['id', 'local_id', 'cached_at', 'updated_at'].includes(key)) continue;
+                form += \`<div class="mb-3"><label class="form-label">\${key.replace(/_/g, ' ')}</label><input type="text" class="form-control" name="\${key}" value="\${String(value || '').replace(/"/g, '&quot;')}"></div>\`;
+            }
+            document.getElementById('edit-form').innerHTML = form;
+            new bootstrap.Modal(document.getElementById('editModal')).show();
+        });
+
+        document.getElementById('save-form-btn').addEventListener('click', async () => {
+            const form = document.getElementById('edit-form');
+            const formData = new FormData(form);
+            const updated = { ...ficheData, ...Object.fromEntries(formData) };
+            await saveFicheToDB(updated);
+            await addToSyncQueue('update', updated);
+            ficheData = updated;
+            renderFiche(ficheData);
+            bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+            alert('✓ Modifiée! Sync en attente...');
+        });
+
+        document.getElementById('delete-btn').addEventListener('click', async () => {
+            if (!confirm('Supprimer cette fiche?')) return;
+            await addToSyncQueue('delete', { local_id: localId, id: ficheData?.id });
+            await deleteFicheFromDB(localId);
+            alert('✓ Supprimée!');
+            setTimeout(() => { window.location.href = '/inspection/fiches/'; }, 1000);
+        });
+
+        loadFiche();
+    </script>
+</body>
+</html>`;
+  
+  return new Response(html, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+  });
+}
+
 // ── Fetch ─────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
@@ -308,6 +507,33 @@ self.addEventListener('fetch', (event) => {
 
   // ── Pages HTML : Network First + cache ─────────────────────────────────
   if (event.request.headers.get('accept')?.includes('text/html')) {
+    // Pages locales /fiche/local/* ou /inspection/fiche/local/* doivent être servies en Network First
+    // (le contenu vient du serveur Django mais avec données depuis IndexedDB côté client)
+    if (url.pathname.startsWith('/fiche/local/') || url.pathname.startsWith('/inspection/fiche/local/')) {
+      event.respondWith(
+        fetch(event.request)
+          .then((response) => {
+            // Mettre en cache les réponses OK
+            if (response.ok) {
+              const clone = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request.url, clone));
+            }
+            return response;
+          })
+          .catch(() => {
+            // En cas d'erreur réseau, essayer le cache
+            return caches.match(event.request).then((cached) => {
+              if (cached) return cached;
+              
+              // Servir une page HTML générique qui charge depuis IndexedDB
+              const localId = url.pathname.match(/\/fiche\/local\/([^\/]+)/)?.[1] || url.pathname.match(/\/inspection\/fiche\/local\/([^\/]+)/)?.[1];
+              return serveLocalFicheHTML(localId || 'unknown');
+            });
+          })
+      );
+      return;
+    }
+
     event.respondWith(
       fetch(event.request)
         .then((response) => {

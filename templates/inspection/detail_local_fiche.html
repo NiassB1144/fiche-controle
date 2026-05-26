@@ -1,0 +1,380 @@
+{% extends 'inspection/base.html' %}
+{% load static %}
+
+{% block title %}Fiche (Hors-ligne) - {{ local_id }} - Inspection du Travail{% endblock %}
+
+{% block extra_css %}
+<style>
+  .offline-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffc107;
+    color: #856404;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .fiche-detail {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .fiche-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #f0f2f5;
+  }
+
+  .fiche-section:last-child {
+    border-bottom: none;
+  }
+
+  .fiche-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #006633;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 4px solid #006633;
+    padding-left: 12px;
+  }
+
+  .fiche-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .fiche-field {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .fiche-label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+  }
+
+  .fiche-value {
+    font-size: 1rem;
+    color: #222;
+    background: #f8f9fa;
+    padding: 0.7rem;
+    border-radius: 6px;
+    border-left: 3px solid #006633;
+    word-break: break-word;
+  }
+
+  .fiche-value.empty {
+    color: #999;
+    font-style: italic;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-modify {
+    background: #0d6efd;
+    color: white;
+    padding: 0.6rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-modify:hover {
+    background: #0b5ed7;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3);
+  }
+
+  .btn-delete {
+    background: #dc3545;
+    color: white;
+    padding: 0.6rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-delete:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+  }
+
+  .btn-back {
+    background: #6c757d;
+    color: white;
+    padding: 0.6rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-back:hover {
+    background: #5c636a;
+  }
+
+  .sync-status {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .sync-status i {
+    color: #856404;
+    font-size: 1.2rem;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 3rem;
+  }
+
+  .spinner {
+    border: 4px solid #f0f2f5;
+    border-top: 4px solid #006633;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .error-alert {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <!-- Retour -->
+  <div class="mb-3">
+    <a href="/inspection/liste_fiches/" class="btn-back">
+      <i class="bi bi-arrow-left"></i> Retour
+    </a>
+  </div>
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <h1 id="fiche-titre" class="mb-2">Chargement...</h1>
+      <span class="offline-badge">
+        <i class="bi bi-hdd"></i> Hors-ligne (Non synchronisée)
+      </span>
+    </div>
+  </div>
+
+  <!-- Contenu -->
+  <div id="fiche-content" class="fiche-detail">
+    <div class="loading">
+      <div class="spinner"></div>
+      <p>Chargement de la fiche...</p>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="action-buttons">
+    <button id="btn-modify" class="btn-modify">
+      <i class="bi bi-pencil"></i> Modifier
+    </button>
+    <button id="btn-delete" class="btn-delete">
+      <i class="bi bi-trash3"></i> Supprimer
+    </button>
+  </div>
+</div>
+
+<script src="{% static 'js/offline-crud.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const local_id = '{{ local_id }}';
+  let ficheData = null;
+
+  // ============================================================
+  // CHARGER LA FICHE
+  // ============================================================
+  async function loadFiche() {
+    try {
+      ficheData = await OfflineCRUD.getFiche(parseInt(local_id));
+
+      if (!ficheData) {
+        showError('Fiche non trouvée dans le stockage local');
+        return;
+      }
+
+      renderFiche(ficheData);
+    } catch (error) {
+      console.error('Erreur chargement:', error);
+      showError('Erreur lors du chargement: ' + error.message);
+    }
+  }
+
+  // ============================================================
+  // AFFICHER LA FICHE
+  // ============================================================
+  function renderFiche(data) {
+    // Titre
+    document.getElementById('fiche-titre').textContent = data.entreprise || 'Fiche sans nom';
+
+    // Sections
+    const sections = {
+      '📋 Entreprise': ['entreprise', 'forme_juridique', 'secteur_activite', 'numero_siret'],
+      '📍 Adresse': ['adresse', 'codepostal', 'ville'],
+      '📅 Contrôle': ['date_controle', 'lieu_controle', 'inspecteur_nom'],
+      '📞 Contacts': ['telephone', 'email_entreprise'],
+    };
+
+    let html = '';
+
+    for (const [sectionTitle, fields] of Object.entries(sections)) {
+      let hasData = false;
+      let sectionHtml = `<div class="fiche-section">
+        <div class="fiche-section-title">${sectionTitle}</div>
+        <div class="fiche-row">`;
+
+      for (const field of fields) {
+        if (data[field]) {
+          const label = field.replace(/_/g, ' ').toUpperCase();
+          sectionHtml += `
+            <div class="fiche-field">
+              <div class="fiche-label">${label}</div>
+              <div class="fiche-value">${escapeHtml(data[field])}</div>
+            </div>`;
+          hasData = true;
+        }
+      }
+
+      sectionHtml += '</div></div>';
+
+      if (hasData) {
+        html += sectionHtml;
+      }
+    }
+
+    // Autres champs
+    const excludedFields = [
+      'local_id', 'synced', 'server_pk', 'created_offline_at', 'updated_at', 'synced_at',
+      'entreprise', 'forme_juridique', 'secteur_activite', 'numero_siret',
+      'adresse', 'codepostal', 'ville',
+      'date_controle', 'lieu_controle', 'inspecteur_nom',
+      'telephone', 'email_entreprise'
+    ];
+
+    let otherHtml = '';
+    for (const [key, value] of Object.entries(data)) {
+      if (!excludedFields.includes(key) && value) {
+        const label = key.replace(/_/g, ' ').toUpperCase();
+        otherHtml += `
+          <div class="fiche-field">
+            <div class="fiche-label">${label}</div>
+            <div class="fiche-value">${escapeHtml(String(value))}</div>
+          </div>`;
+      }
+    }
+
+    if (otherHtml) {
+      html += `<div class="fiche-section">
+        <div class="fiche-section-title">📝 Autres informations</div>
+        <div class="fiche-row">${otherHtml}</div>
+      </div>`;
+    }
+
+    document.getElementById('fiche-content').innerHTML = html;
+  }
+
+  // ============================================================
+  // MODIFIER
+  // ============================================================
+  document.getElementById('btn-modify').addEventListener('click', () => {
+    window.location.href = `/inspection/fiche/local/${local_id}/edit/`;
+  });
+
+  // ============================================================
+  // SUPPRIMER
+  // ============================================================
+  document.getElementById('btn-delete').addEventListener('click', async () => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette fiche ?')) {
+      return;
+    }
+
+    try {
+      await OfflineCRUD.deleteFiche(parseInt(local_id));
+      alert('✓ Fiche supprimée');
+      window.location.href = '/inspection/liste_fiches/';
+    } catch (error) {
+      alert('❌ Erreur: ' + error.message);
+    }
+  });
+
+  // ============================================================
+  // UTILITAIRES
+  // ============================================================
+  function showError(msg) {
+    const content = document.getElementById('fiche-content');
+    content.innerHTML = `
+      <div class="error-alert">
+        <strong>Erreur:</strong> ${escapeHtml(msg)}
+      </div>
+    `;
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Charger au démarrage
+  await loadFiche();
+});
+</script>
+{% endblock %}

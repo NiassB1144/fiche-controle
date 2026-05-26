@@ -75,6 +75,24 @@ function ouvrirDB() {
 }
 
 async function sauvegarderLocalement(donnees) {
+  // Utiliser offline-crud.js si disponible
+  if (typeof OfflineCRUD !== 'undefined') {
+    try {
+      const validation = OfflineCRUD.validateData(donnees);
+      if (!validation.valid) {
+        afficherNotification(validation.errors.join(', '), 'warning');
+        return null;
+      }
+      const local_id = await OfflineCRUD.createFiche(donnees);
+      logInfo('Fiche créée localement', { local_id });
+      afficherNotification('Fiche sauvegardée localement', 'success');
+      return local_id;
+    } catch (error) {
+      logError('Erreur OfflineCRUD.createFiche', error);
+    }
+  }
+
+  // Fallback (ancien code)
   const db = await ouvrirDB();
   const tx = db.transaction(STORE, 'readwrite');
   const store = tx.objectStore(STORE);
@@ -82,6 +100,8 @@ async function sauvegarderLocalement(donnees) {
     ...donnees, 
     local_id: Date.now(), 
     synced: false,
+    server_pk: null,
+    created_offline_at: new Date().toISOString(),
     saved_at: new Date().toISOString()
   };
   store.put(fiche);

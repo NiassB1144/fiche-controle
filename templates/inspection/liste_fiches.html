@@ -356,7 +356,10 @@
                 </div>
               </div>
               <div class="d-flex gap-2">
-                <a href="/fiches/creer/?local_id=${fiche.local_id}" class="btn btn-outline-primary btn-icon" title="Modifier">
+                <a href="/inspection/fiche/local/${fiche.local_id}/detail/" class="btn btn-outline-secondary btn-icon" title="Voir">
+                  <i class="bi bi-eye"></i> <span class="d-none d-sm-inline">Voir</span>
+                </a>
+                <a href="/inspection/fiche/local/${fiche.local_id}/edit/" class="btn btn-outline-primary btn-icon" title="Modifier">
                   <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
                 </a>
                 <button class="btn btn-outline-danger btn-icon btn-delete-local-liste" data-local-id="${fiche.local_id}" onclick="window.deleteLocalFiche('${fiche.local_id}'); return false;" title="Supprimer">

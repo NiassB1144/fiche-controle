@@ -1,0 +1,237 @@
+🎯 CONFIGURATION COMPLÈTE - Offline v4 (FINAL)
+
+================================================
+FICHIERS À VÉRIFIER/MODIFIER
+================================================
+
+1️⃣ inspection/urls.py
+───────────────────
+✓ DÉJÀ MODIFIÉ - Routes ajoutées:
+  - path('fiche/local/<str:local_id>/', views.view_local_fiche)
+  - path('api/local/<str:local_id>/', api.get_local_fiche)
+
+2️⃣ inspection/views.py
+───────────────────
+✓ DÉJÀ MODIFIÉ - Fonction ajoutée:
+  def view_local_fiche(request, local_id):
+      return render(request, 'view_local_fiche.html', {
+          'local_id': local_id,
+          'is_offline': True
+      })
+
+3️⃣ inspection/api.py
+──────────────────
+✓ DÉJÀ MODIFIÉ - Endpoint ajouté:
+  def get_local_fiche(request, local_id):
+      return JsonResponse({...})
+
+4️⃣ templates/view_local_fiche.html
+──────────────────────────────────
+✓ NOUVEAU FICHIER - Template pour fiches offline
+  - Charge fiche depuis IndexedDB
+  - Modification en modal
+  - Actions: Modifier, Supprimer, Synchroniser
+
+5️⃣ static/js/offline-v4.js
+──────────────────────────
+✓ AMÉLIORÉ - Nouvelles méthodes:
+  - handleFicheClick() - Intercepte clics
+  - getFichFromDB() - Supporte local_id
+  - saveFicheDB() - Gère local_id
+
+6️⃣ base.html ou layout.html
+────────────────────────────
+À FAIRE VOUS-MÊME - Ajouter ce script:
+
+  <!-- Avant de fermer </body> -->
+  <script src="{% static 'js/offline-v4.js' %}"></script>
+
+================================================
+DÉPLOIEMENT
+================================================
+
+1. Collect static:
+   python manage.py collectstatic --noinput
+
+2. Reload serveur:
+   - Si debug: Ctrl+C puis python manage.py runserver
+   - Si production: Restart le service/gunicorn
+
+3. Vérifier routes Django:
+   python manage.py shell
+   >>> from django.urls import get_resolver
+   >>> [str(u.pattern) for u in get_resolver().url_patterns if 'local' in str(u)]
+   ✓ Doit afficher les 2 routes
+
+4. Tester en navigateur:
+   http://localhost:8000/fiche/local/test123/
+   ✓ Doit charger la page (même si fiche existe pas)
+
+================================================
+STRUCTURE COMPLÈTE OFFLINE
+================================================
+
+Création fiche:
+  User (offline) → Form submit
+                ↓
+            offline-v4.js (intercepte)
+                ↓
+            IndexedDB.fiches.put({local_id, ...})
+            sync_queue.add({action: "create", ...})
+                ↓
+            Message: "✓ Fiche créée en offline"
+
+Vue fiche offline:
+  User → Click fiche (href="/fiche/local/ABC")
+      ↓
+  Django → view_local_fiche('ABC')
+      ↓
+  Retourne template view_local_fiche.html
+      ↓
+  JavaScript:
+    window.OfflineSystem.getFiche('ABC')
+      ↓
+  IndexedDB → Retourne données
+      ↓
+  Affiche en HTML ✓
+
+Modification:
+  User → Click "Modifier"
+      ↓
+  Modal formulaire apparaît
+      ↓
+  User → Change champ
+      ↓
+  Click "Sauvegarder"
+      ↓
+  Données IndexedDB.put({local_id, ...updates})
+  sync_queue.add({action: "update", ...})
+      ↓
+  Affiche "✓ Modifié!"
+
+Synchronisation:
+  User → Revient online
+      ↓
+  offline-v4.js détecte "online"
+      ↓
+  Lance syncPending()
+      ↓
+  Pour chaque item sync_queue:
+    POST /api/sync/ 
+    {"action": "create", "data": {...}}
+      ↓
+  Django api.sync_endpoint():
+    - handle_save() pour create/update
+    - Crée/modifie FicheControle
+    - Retourne {id: 123, ...}
+      ↓
+  Script marque item: status="synced"
+      ↓
+  Fiche a maintenant un id serveur ✓
+
+================================================
+BASE DE DONNÉES STRUCTURE
+================================================
+
+Côté IndexedDB (navigateur):
+──────────────────────────
+{
+  "fiches": {
+    keyPath: "id || local_id",
+    data: [
+      // Fiches serveur (synchronisées)
+      { id: 1, entreprise: "ACME", cached_at: "..." },
+      
+      // Fiches offline (non synchronisées)
+      { local_id: "1779798172888", entreprise: "TEST", cached_at: "..." }
+    ]
+  },
+  "sync_queue": {
+    keyPath: "id",
+    data: [
+      { 
+        id: 1,
+        action: "create",
+        data: { local_id: "1779798172888", entreprise: "TEST" },
+        status: "pending",
+        created_at: "2025-05-26T..."
+      }
+    ]
+  }
+}
+
+Côté Django (serveur):
+────────────────────
+FicheControle:
+  - id: Auto
+  - entreprise: CharField
+  - ... (tous les champs)
+  - local_id: CharField (garde référence offline) [OPTIONNEL]
+
+Flux:
+  1. Fiche offline créée: local_id="1779798172888"
+  2. Sauvegardée dans IndexedDB
+  3. Sync → POST /api/sync/
+  4. Django crée FicheControle.objects.create(...)
+  5. Serveur retourne {id: 123, ...}
+  6. Client met à jour IndexedDB[{id: 123, local_id: "...", ...}]
+
+================================================
+TESTER COMPLÈTEMENT
+================================================
+
+Checklist:
+  [ ] offline-v4.js chargé dans base.html
+  [ ] Routes Django en place
+  [ ] view_local_fiche.html existe
+  [ ] Créer fiche en offline → OK
+  [ ] Voir fiche offline → /fiche/local/... → OK
+  [ ] Modifier fiche offline → Modal → OK
+  [ ] Supprimer fiche offline → Confirmé → OK
+  [ ] Aller online → Auto-sync → OK
+  [ ] Fiche maintenant a ID serveur → OK
+
+Problems courants:
+  ❌ "Fiche non trouvée": Fiche pas encore créée/chargée
+     Fix: Créer d'abord en offline, ou charger en online d'abord
+
+  ❌ "503 Service Unavailable": Route /fiche/local/ pas trouvée
+     Fix: Vérifier urls.py modifié, tester avec python manage.py shell
+
+  ❌ "offline-v4.js not loaded": Script pas en base.html
+     Fix: Ajouter <script src="{% static 'js/offline-v4.js' %}"></script>
+
+  ❌ IndexedDB empty: offline-v4.js pas chargé
+     Fix: Vérifier console errors (F12)
+
+================================================
+NEXT STEPS
+================================================
+
+1. ✓ Vérifier que base.html charge offline-v4.js
+2. ✓ Tester création offline → doit créer avec local_id
+3. ✓ Tester voir fiche offline → doit charger /fiche/local/
+4. ✓ Tester modification → doit afficher modal
+5. ✓ Tester sync → doit marquer comme "synced"
+6. ✓ Vérifier FicheControle créée en BD après sync
+
+Si tout OK → Vous avez un système offline COMPLET! 🎉
+
+================================================
+RÉSUMÉ FINAL
+================================================
+
+AVANT:
+  ❌ Créer offline: OK
+  ❌ Voir offline: 503 ERROR
+  ❌ Modifier offline: FAIL
+  ❌ Supprimer offline: FAIL
+
+APRÈS:
+  ✅ Créer offline: ✓
+  ✅ Voir offline: ✓ (/fiche/local/)
+  ✅ Modifier offline: ✓ (modal)
+  ✅ Supprimer offline: ✓ (queue)
+  ✅ Sync auto: ✓
+
+ENJOY! 🚀

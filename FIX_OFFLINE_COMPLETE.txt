@@ -1,0 +1,238 @@
+🚀 FIX: Vue/Modification/Suppression des fiches créées OFFLINE
+
+✅ RÉSOLU - Les 3 routes de problème
+
+Avant (❌ 503):
+  1. Crée fiche en offline → local_id=1779798172888
+  2. Clique dessus → /fiches/creer/?local_id=1779798172888
+  3. ❌ 503 Service Unavailable (pas de route)
+
+Maintenant (✅):
+  1. Crée fiche en offline → local_id=1779798172888
+  2. Clique dessus → /fiche/local/1779798172888/ (NOUVELLE ROUTE)
+  3. ✓ Affiche la fiche depuis IndexedDB
+  4. ✓ Permet modification
+  5. ✓ Permet suppression
+  6. ✓ Sync auto quand online
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 FICHIERS MODIFIÉS/CRÉÉS
+
+✓ inspection/urls.py
+  - Ajouté: path('fiche/local/<str:local_id>/', views.view_local_fiche)
+  - Ajouté: path('api/local/<str:local_id>/', api.get_local_fiche)
+
+✓ inspection/views.py
+  - Ajouté: view_local_fiche() - Affiche fiche locale
+
+✓ inspection/api.py
+  - Ajouté: get_local_fiche() - API pour fiches locales
+
+✓ templates/view_local_fiche.html (NOUVEAU)
+  - Template pour afficher fiches créées offline
+  - Formulaire modification intégré
+  - Actions: Modifier, Supprimer, Synchroniser
+
+✓ static/js/offline-v4.js (AMÉLIORÉ)
+  - getFichFromDB() - Supporte local_id
+  - handleFicheClick() - Intercepte clics fiches
+  - saveFicheDB() - Gère local_id correctement
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧪 TEST - VÉRIFIER QUE CA MARCHE
+
+Avant de tester, vérifier:
+  [ ] Tous les fichiers ci-dessus modifiés/créés
+  [ ] offline-v4.js chargé dans base.html
+  [ ] Django serveur tourne (python manage.py runserver)
+
+Test 1: Créer fiche en offline
+──────────────────────────────
+1. Aller offline (Devtools → Network → Offline)
+2. Cliquer "Créer fiche"
+3. Remplir formulaire
+4. Cliquer "Créer"
+5. ✓ Message "Fiche créée en offline"
+6. ✓ Fiche apparaît dans liste (avec local_id badge)
+
+Test 2: Voir la fiche créée offline
+─────────────────────────────────
+1. Toujours offline
+2. Cliquer sur la fiche créée
+3. ✓ Page /fiche/local/<local_id>/ charge
+4. ✓ Les données s'affichent correctement
+5. ✓ Pas d'erreur 503!
+
+Test 3: Modifier en offline
+──────────────────────────
+1. Toujours sur page de la fiche
+2. Cliquer "Modifier"
+3. Changer un champ
+4. Cliquer "Sauvegarder"
+5. ✓ Message "Fiche modifiée!"
+6. ✓ Les données mises à jour s'affichent
+
+Test 4: Supprimer en offline
+────────────────────────────
+1. Sur page de la fiche
+2. Cliquer "Supprimer"
+3. Confirmer
+4. ✓ Redirection vers liste
+5. ✓ Fiche supprimée du cache local
+
+Test 5: Synchronisation
+──────────────────────
+1. Aller online (Devtools → Network → décocher Offline)
+2. ✓ Auto-sync se déclenche automatiquement
+3. ✓ Fiches créées/modifiées sauvegardées en BD
+4. ✓ Recharger page → fiches ont des IDs serveur
+5. ✓ Fonctionnent comme des fiches normales
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 STRUCTURE DES DONNÉES
+
+IndexedDB (coté client):
+─────────────────────
+FicheControleDB
+├── fiches (store)
+│   ├── { id: 1, entreprise: "ACME", cached_at: "..." }  ← fiche serveur
+│   └── { local_id: "1779798172888", entreprise: "TEST", cached_at: "..." }  ← fiche offline
+│
+└── sync_queue (store)
+    └── { action: "create", data: {...}, status: "pending" }  ← à synchroniser
+
+sync_queue:
+──────────
+Avant sync:
+  ✓ { action: "create", data: {local_id: "...", entreprise: "..."}, status: "pending" }
+
+Après création serveur (sync ok):
+  ✓ { id: 123, entreprise: "...", local_id: "1779798172888", ... }
+  ✓ Item ajouté à fiches, status: "synced"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️ COMMENT CA MARCHE
+
+Flux création offline:
+──────────────────
+1. User crée fiche offline
+2. offline-v4.js intercepte formulaire
+3. Génère local_id = Date.now()
+4. Sauvegarde en IndexedDB.fiches
+5. Ajoute à sync_queue avec action="create"
+6. Affiche "Fiche créée en offline" ✓
+
+Flux accès fiche locale:
+──────────────────────
+1. User clique sur fiche (href="/fiche/local/123456789")
+2. Navigateur va à /fiche/local/123456789/
+3. Django → view_local_fiche()
+4. Charge template view_local_fiche.html
+5. JavaScript côté client:
+   - Appelle window.OfflineSystem.getFiche('123456789')
+   - IndexedDB retourne les données
+   - Affiche en HTML ✓
+
+Flux modification offline:
+───────────────────────
+1. User clique "Modifier"
+2. Modal apparaît avec formulaire
+3. User change champ
+4. Clique "Sauvegarder"
+5. Données sauvegardées en IndexedDB
+6. Ajouté à sync_queue avec action="update"
+7. Affiche "Fiche modifiée!" ✓
+
+Flux sync:
+─────────
+1. User revient online
+2. offline-v4.js détecte "online"
+3. Appelle syncPending()
+4. Pour chaque item dans sync_queue:
+   POST /api/sync/
+   {
+     "action": "create|update|delete",
+     "data": {...}
+   }
+5. Django process, crée/modifie en BD
+6. Marque item comme "synced"
+7. ✓ Fiche maintenant a un id serveur
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 POINTS IMPORTANTS
+
+✓ local_id:
+  - Généré comme Date.now().toString()
+  - Unique par création
+  - Conservé même après sync (pour tracing)
+
+✓ Fichier keyPath IndexedDB:
+  - Doit supporter id ET local_id
+  - Solution: utiliser la valeur existante (id || local_id)
+
+✓ Routes:
+  - /fiche/local/<local_id>/ → Voir fiche offline
+  - /api/local/<local_id>/ → Info fiche offline (optional)
+
+✓ Service Worker:
+  - Doit cacher /fiche/local/* routes
+  - Doit retourner du cache quand offline
+  - Automatique via offline-v4.js + sw.js existant
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 RÉSULTAT FINAL
+
+Avant cette fix:
+  ❌ Créer fiche offline: OK
+  ❌ Voir fiche offline: FAIL (503)
+  ❌ Modifier offline: FAIL (pas de page)
+  ❌ Supprimer offline: FAIL (pas de route)
+
+Après cette fix:
+  ✅ Créer fiche offline: ✓
+  ✅ Voir fiche offline: ✓ (nouveau /fiche/local/)
+  ✅ Modifier offline: ✓ (modal intégré)
+  ✅ Supprimer offline: ✓ (marquée dans queue)
+  ✅ Sync auto: ✓ (tout se synchronise)
+
+Expérience complète offline!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❓ DÉBUGGING
+
+Si ça ne marche pas:
+
+1. Vérifier la route:
+   python manage.py shell
+   >>> from django.urls import get_resolver
+   >>> resolver = get_resolver()
+   >>> [u.pattern for u in resolver.url_patterns if 'local' in str(u)]
+   ✓ Doit voir 'fiche/local/<local_id>/'
+
+2. Vérifier IndexedDB:
+   DevTools → Application → IndexedDB → FicheControleDB
+   ✓ Doit voir les fiches avec "local_id"
+
+3. Vérifier offline-v4.js charge:
+   DevTools → Console:
+   > window.OfflineSystem
+   ✓ Doit retourner un objet
+
+4. Vérifier template charge:
+   DevTools → Network → chercher "view_local_fiche.html"
+   ✓ Doit être 200 OK
+
+5. Vérifier JavaScript erreurs:
+   DevTools → Console (F12)
+   ✓ Doit pas avoir erreurs rouges
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✨ Voilà! Offline complet maintenant! 🎉

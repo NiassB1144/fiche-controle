@@ -1,0 +1,306 @@
+{% extends 'inspection/base.html' %}
+{% load static %}
+
+{% block title %}Fiche (Non synchronisée) - Inspection du Travail{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Fiche content will be loaded here -->
+    <div id="fiche-container" class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0" id="fiche-titre">Fiche (Chargement...)</h2>
+                </div>
+                <div class="card-body">
+                    <div id="fiche-content">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Chargement...</span>
+                        </div>
+                        <p>Chargement des données locales...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    <button id="edit-btn" class="btn btn-primary w-100 mb-2">
+                        ✏️ Modifier
+                    </button>
+                    <button id="delete-btn" class="btn btn-danger w-100 mb-2">
+                        🗑️ Supprimer
+                    </button>
+                    <hr>
+                    <p class="text-muted small">
+                        <em>Les modifications sont synchronisées automatiquement</em>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal modification -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Modifier la fiche</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-form">
+                    <div id="edit-fields"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="save-form-btn">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .fiche-field {
+        margin-bottom: 15px;
+    }
+    .fiche-label {
+        font-weight: bold;
+        color: #333;
+    }
+    .fiche-value {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        margin-top: 5px;
+    }
+</style>
+
+<script>
+// Fonction pour récupérer une fiche depuis IndexedDB
+async function getFicheFromIndexedDB(ficheId) {
+    return new Promise((resolve) => {
+        const req = indexedDB.open('FicheControleDB', 4);
+        req.onsuccess = (e) => {
+            const db = e.target.result;
+            const tx = db.transaction(['fiches'], 'readonly');
+            const store = tx.objectStore('fiches');
+            const getReq = store.get(ficheId);
+            getReq.onsuccess = () => resolve(getReq.result);
+            getReq.onerror = () => resolve(null);
+        };
+        req.onerror = () => resolve(null);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const localId = '{{ local_id }}';
+    let ficheData = null;
+
+    // ==================== CHARGER LA FICHE ====================
+    async function loadFiche() {
+        try {
+            // Récupérer depuis IndexedDB
+            ficheData = await getFicheFromIndexedDB(localId);
+            
+            if (!ficheData) {
+                showError('Fiche non trouvée dans le cache local');
+                return;
+            }
+
+            renderFiche(ficheData);
+        } catch (error) {
+            console.error('Erreur chargement:', error);
+            showError('Erreur lors du chargement: ' + error.message);
+        }
+    }
+
+    // ==================== AFFICHER LA FICHE ====================
+    function renderFiche(data) {
+        // Titre
+        document.getElementById('fiche-titre').textContent = 
+            data.entreprise || 'Fiche sans nom';
+
+        // Contenu
+        const content = document.getElementById('fiche-content');
+        let html = '';
+
+        // Sections principales
+        const sections = {
+            'Entreprise': ['entreprise', 'forme_juridique', 'secteur_activite'],
+            'Adresse': ['adresse', 'codepostal', 'ville'],
+            'Contrôle': ['date_controle', 'lieu_controle'],
+            'Contacts': ['telephone', 'email_entreprise'],
+        };
+
+        for (const [title, fields] of Object.entries(sections)) {
+            let hasData = false;
+            let sectionHtml = `<div class="fiche-field"><strong>${title}</strong><div class="fiche-value">`;
+
+            for (const field of fields) {
+                if (data[field]) {
+                    sectionHtml += `<p><em>${field}:</em> ${data[field]}</p>`;
+                    hasData = true;
+                }
+            }
+
+            sectionHtml += '</div></div>';
+
+            if (hasData) {
+                html += sectionHtml;
+            }
+        }
+
+        // Toutes les autres données
+        for (const [key, value] of Object.entries(data)) {
+            if (key !== 'id' && key !== 'local_id' && value && 
+                !['entreprise', 'forme_juridique', 'secteur_activite', 'adresse', 
+                  'codepostal', 'ville', 'date_controle', 'lieu_controle', 
+                  'telephone', 'email_entreprise'].includes(key)) {
+                
+                html += `<div class="fiche-field">
+                    <strong>${key.replace(/_/g, ' ')}:</strong>
+                    <div class="fiche-value">${value}</div>
+                </div>`;
+            }
+        }
+
+        content.innerHTML = html;
+    }
+
+    // ==================== MODIFIER ====================
+    document.getElementById('edit-btn').addEventListener('click', () => {
+        if (!ficheData) return;
+        
+        // Construire formulaire
+        const fieldsContainer = document.getElementById('edit-fields');
+        let form = '';
+
+        for (const [key, value] of Object.entries(ficheData)) {
+            if (['id', 'local_id', 'cached_at', 'updated_at'].includes(key)) continue;
+
+            form += `
+                <div class="mb-3">
+                    <label for="field-${key}" class="form-label">${key.replace(/_/g, ' ')}</label>
+                    <input type="text" class="form-control" id="field-${key}" 
+                           name="${key}" value="${value || ''}">
+                </div>
+            `;
+        }
+
+        fieldsContainer.innerHTML = form;
+        
+        // Ouvrir modal
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    });
+
+    // ==================== SAUVEGARDER ====================
+    document.getElementById('save-form-btn').addEventListener('click', async () => {
+        const form = document.getElementById('edit-form');
+        const formData = new FormData(form);
+        const updated = Object.fromEntries(formData);
+
+        try {
+            // Fusionner avec données existantes
+            const merged = { ...ficheData, ...updated };
+            
+            // Sauvegarder en IndexedDB
+            const req = indexedDB.open('FicheControleDB', 4);
+            req.onsuccess = (e) => {
+                const db = e.target.result;
+                const tx = db.transaction(['fiches', 'sync_queue'], 'readwrite');
+                const store = tx.objectStore('fiches');
+                store.put(merged);
+                
+                // Ajouter à sync_queue
+                const queueStore = tx.objectStore('sync_queue');
+                queueStore.add({
+                    action: 'update',
+                    data: merged,
+                    status: 'pending',
+                    created_at: new Date().toISOString(),
+                    attempts: 0
+                });
+            };
+
+            alert('✓ Fiche modifiée! Synchronisation en attente...');
+            
+            // Fermer modal
+            bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+            
+            // Recharger
+            ficheData = merged;
+            renderFiche(ficheData);
+        } catch (error) {
+            alert('❌ Erreur: ' + error.message);
+        }
+    });
+
+    // ==================== SUPPRIMER ====================
+    document.getElementById('delete-btn').addEventListener('click', () => {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer cette fiche?')) return;
+
+        try {
+            // Marquer pour suppression en IndexedDB
+            const req = indexedDB.open('FicheControleDB', 4);
+            req.onsuccess = (e) => {
+                const db = e.target.result;
+                const tx = db.transaction(['fiches', 'sync_queue'], 'readwrite');
+                
+                // Ajouter à sync_queue pour suppression
+                const queueStore = tx.objectStore('sync_queue');
+                queueStore.add({
+                    action: 'delete',
+                    data: { local_id: localId, id: ficheData.id },
+                    status: 'pending',
+                    created_at: new Date().toISOString(),
+                    attempts: 0
+                });
+                
+                // Supprimer du cache fiches
+                const fileStore = tx.objectStore('fiches');
+                fileStore.delete(localId);
+            };
+
+            alert('✓ Fiche supprimée!');
+            setTimeout(() => {
+                window.location.href = '/inspection/liste_fiches/';
+            }, 1000);
+        } catch (error) {
+            alert('❌ Erreur: ' + error.message);
+        }
+    });
+
+    // ==================== SYNCHRONISER ====================
+    document.getElementById('sync-btn').addEventListener('click', async () => {
+        try {
+            alert('🔄 Synchronisation en cours...');
+            // Déclencher sync via le système offline (depuis app-offline-unified.js)
+            if (window.FicheApp && typeof window.FicheApp.syncAll === 'function') {
+                await window.FicheApp.syncAll();
+            }
+        } catch (error) {
+            alert('❌ Erreur sync: ' + error.message);
+        }
+    });
+
+    // ==================== UTILS ====================
+    function showError(msg) {
+        const content = document.getElementById('fiche-content');
+        content.innerHTML = `
+            <div class="alert alert-danger">
+                <strong>Erreur:</strong> ${msg}
+            </div>
+        `;
+    }
+
+    // Charger au démarrage
+    loadFiche();
+});
+</script>
+{% endblock %}
