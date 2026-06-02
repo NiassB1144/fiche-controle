@@ -4,7 +4,7 @@
 
 const LOG_PREFIX = '[FicheApp]';
 const DB_NAME = 'ficheControleDB';
-const DB_VERSION = 3; // Version incrémentée
+const DB_VERSION = 5;
 const STORE = 'fiches_locales';
 
 // ========================================================================
@@ -75,6 +75,24 @@ function ouvrirDB() {
 }
 
 async function sauvegarderLocalement(donnees) {
+  // Utiliser offline-crud.js si disponible
+  if (typeof OfflineCRUD !== 'undefined') {
+    try {
+      const validation = OfflineCRUD.validateData(donnees);
+      if (!validation.valid) {
+        afficherNotification(validation.errors.join(', '), 'warning');
+        return null;
+      }
+      const local_id = await OfflineCRUD.createFiche(donnees);
+      logInfo('Fiche créée localement', { local_id });
+      afficherNotification('Fiche sauvegardée localement', 'success');
+      return local_id;
+    } catch (error) {
+      logError('Erreur OfflineCRUD.createFiche', error);
+    }
+  }
+
+  // Fallback (ancien code)
   const db = await ouvrirDB();
   const tx = db.transaction(STORE, 'readwrite');
   const store = tx.objectStore(STORE);
@@ -82,6 +100,8 @@ async function sauvegarderLocalement(donnees) {
     ...donnees, 
     local_id: Date.now(), 
     synced: false,
+    server_pk: null,
+    created_offline_at: new Date().toISOString(),
     saved_at: new Date().toISOString()
   };
   store.put(fiche);
@@ -267,7 +287,7 @@ async function renderLocalFiches() {
     }
     
     container.innerHTML = filtered.map(fiche => `
-      <div class="fiche-card local-card p-3" data-local-id="${fiche.local_id}">
+      <div class="fiche-card local-card p-3" data-local-id="${fiche.local_id}" onclick="window.location.href = '/inspection/fiche/local/${fiche.local_id}/detail/'" style="cursor: pointer;">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
           <div class="flex-grow-1">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -291,10 +311,10 @@ async function renderLocalFiches() {
             </div>
           </div>
           <div class="d-flex gap-2">
-            <a href="/fiches/creer/?local_id=${fiche.local_id}" class="btn btn-outline-primary btn-icon" title="Modifier">
+            <a href="/inspection/fiche/local/${fiche.local_id}/edit/" class="btn btn-outline-primary btn-icon" title="Modifier" onclick="event.stopPropagation()">
               <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
             </a>
-            <button onclick="if(window.FicheApp) window.FicheApp.deleteFicheLocal('${fiche.local_id}')" class="btn btn-outline-danger btn-icon" title="Supprimer">
+            <button onclick="if(window.FicheApp) window.FicheApp.deleteFicheLocal('${fiche.local_id}'); event.stopPropagation()" class="btn btn-outline-danger btn-icon" title="Supprimer">
               <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
             </button>
           </div>
@@ -457,11 +477,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ========================================================================
+// MÉTHODES OFFLINE SIMPLIFIÉES (pour templates offline)
+// ========================================================================
+async function getFiche(local_id) {
+  // Alias pour getFicheByLocalId
+  return await getFicheByLocalId(local_id);
+}
+
+async function saveFiche(data) {
+  // Créer une nouvelle fiche offline
+  return await sauvegarderLocalement(data);
+}
+
+async function updateFiche(local_id, data) {
+  // Mettre à jour une fiche existante
+  const db = await ouvrirDB();
+  const tx = db.transaction(STORE, 'readwrite');
+  const store = tx.objectStore(STORE);
+  
+  const fiche = await getFicheByLocalId(local_id);
+  if (!fiche) throw new Error('Fiche non trouvée');
+  
+  const updated = {
+    ...fiche,
+    ...data,
+    local_id: fiche.local_id,
+    saved_at: new Date().toISOString()
+  };
+  
+  return new Promise((resolve, reject) => {
+    const req = store.put(updated);
+    req.onsuccess = () => resolve(updated);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ========================================================================
 // EXPORT GLOBAL
 // ========================================================================
 window.FicheApp = {
   sauvegarderLocalement,
+  saveFiche,
+  getFiche,
   getFicheByLocalId,
+  updateFiche,
   getAllFiches,
   deleteFiche,
   deleteLocalFiche,

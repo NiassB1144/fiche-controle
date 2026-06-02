@@ -58,12 +58,23 @@ async function sauvegarderLocalement(donnees) {
       id = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
     
+    // Valider et nettoyer les données - s'assurer que c'est un objet valide
+    const cleanedData = {};
+    if (typeof donnees === 'object' && donnees !== null) {
+      for (const [key, value] of Object.entries(donnees)) {
+        // Ignorer les propriétés système non pertinentes
+        if (!key.startsWith('_') && key !== 'csrfmiddlewaretoken') {
+          cleanedData[key] = value;
+        }
+      }
+    }
+    
     const fiche = {
       id: id,
       local_id: id,
-      data: donnees,
-      entreprise: donnees.entreprise || 'Sans nom',
-      date_controle: donnees.date_controle || '',
+      data: cleanedData,
+      entreprise: cleanedData.entreprise || 'Sans nom',
+      date_controle: cleanedData.date_controle || '',
       synced: false,
       saved_at: new Date().toISOString()
     };

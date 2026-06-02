@@ -447,11 +447,19 @@ async function renderLocalFiches() {
     
     // Event delegation pour les boutons offline
     container.addEventListener('click', async (e) => {
-      if (e.target.closest('.btn-delete-local')) {
-        const lid = e.target.closest('.btn-delete-local').dataset.localId;
-        await window.FicheApp.deleteFicheLocal(lid);
-      } else if (e.target.closest('.btn-view-local')) {
-        const lid = e.target.closest('.btn-view-local').dataset.localId;
+      const deleteBtn = e.target.closest('.btn-delete-local');
+      const viewBtn = e.target.closest('.btn-view-local');
+      
+      if (deleteBtn) {
+        const lid = deleteBtn.getAttribute('data-local-id');
+        logInfo('🗑️ Suppression demandée', { local_id: lid });
+        if (confirm('Supprimer définitivement cette fiche ?')) {
+          await window.FicheApp.deleteFicheLocal(lid);
+          await renderLocalFiches(); // Rafraîchir la liste
+        }
+      } else if (viewBtn) {
+        const lid = viewBtn.getAttribute('data-local-id');
+        logInfo('👁️ Consultation demandée', { local_id: lid });
         await window.FicheApp.viewLocalFiche(lid);
       }
     });
@@ -462,20 +470,33 @@ async function renderLocalFiches() {
 }
 
 async function editFicheLocal(local_id) {
-  // Redirection vers le formulaire avec le local_id
-  window.location.href = `/fiches/creer/?local_id=${encodeURIComponent(local_id)}`;
-}
-
-async function viewLocalFiche(local_id) {
+  logInfo('✏️ Édition demandée', { local_id });
+  // Vérifier que la fiche existe
   const fiche = await getFicheByLocalId(local_id);
   if (!fiche) {
     afficherNotification('Fiche non trouvée', 'danger');
     return;
   }
-  
-  // Créer une modale pour afficher les détails
-  let modal = document.getElementById('fiche-detail-modal');
-  if (!modal) {
+  // Redirection vers le formulaire avec le local_id
+  window.location.href = `/fiches/creer/?local_id=${encodeURIComponent(local_id)}`;
+}
+
+async function viewLocalFiche(local_id) {
+  try {
+    logInfo('📋 Chargement détails', { local_id });
+    const fiche = await getFicheByLocalId(local_id);
+    if (!fiche) {
+      afficherNotification('Fiche non trouvée', 'danger');
+      logError('Fiche non trouvée', { local_id });
+      return;
+    }
+    
+    logInfo('✓ Fiche chargée pour affichage', { entreprise: fiche.entreprise });
+    
+    // Créer une modale pour afficher les détails
+    let modal = document.getElementById('fiche-detail-modal');
+    if (modal) modal.remove(); // Supprimer ancienne modale
+    
     modal = document.createElement('div');
     modal.id = 'fiche-detail-modal';
     modal.style.cssText = `
@@ -483,52 +504,61 @@ async function viewLocalFiche(local_id) {
       background: rgba(0,0,0,0.5); display: flex; align-items: center;
       justify-content: center; z-index: 9999;
     `;
+    
+    const details = Object.entries(fiche)
+      .filter(([k]) => !['local_id', 'synced', 'server_pk', 'saved_at', 'updated_at', 'synced_at', 'statut'].includes(k))
+      .map(([k, v]) => {
+        const val = String(v || '-');
+        return `<tr><td class="fw-bold" style="padding: 8px; border-bottom: 1px solid #eee;">${k}</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${escapeHtml(val)}</td></tr>`;
+      })
+      .join('');
+    
+    modal.innerHTML = `
+      <div style="background: white; border-radius: 12px; padding: 2rem; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h5 class="fw-bold" style="margin: 0;">📋 ${escapeHtml(fiche.entreprise || 'Détails Fiche')}</h5>
+          <button style="background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tbody>${details}</tbody>
+        </table>
+        <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+          <button class="btn btn-secondary btn-sm">Fermer</button>
+        </div>
+      </div>
+    `;
+    
     document.body.appendChild(modal);
+    modal.style.display = 'flex';
+    
+    // Fermer en cliquant le X
+    const closeBtn = modal.querySelector('button');
+    closeBtn.addEventListener('click', () => {
+      logInfo('Fermeture modale');
+      modal.remove();
+    });
+    
+    // Fermer en cliquant dehors
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        logInfo('Fermeture modale (clic dehors)');
+        modal.remove();
+      }
+    });
+    
+    afficherNotification('Détails chargés ✓', 'info');
+  } catch (e) {
+    logError('Erreur viewLocalFiche', e);
+    afficherNotification('Erreur lors du chargement', 'danger');
   }
-  
-  const details = Object.entries(fiche)
-    .filter(([k]) => !['local_id', 'synced', 'server_pk', 'saved_at', 'updated_at', 'synced_at', 'statut'].includes(k))
-    .map(([k, v]) => `<tr><td class="fw-bold">${k}</td><td>${escapeHtml(String(v || '-'))}</td></tr>`)
-    .join('');
-  
-  modal.innerHTML = `
-    <div style="background: white; border-radius: 12px; padding: 2rem; max-width: 90%; max-height: 80vh; overflow-y: auto;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <h5 class="fw-bold" style="margin: 0;">📋 ${escapeHtml(fiche.entreprise || 'Détails Fiche')}</h5>
-        <button onclick="document.getElementById('fiche-detail-modal').style.display='none'" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
-      </div>
-      <table style="width: 100%; border-collapse: collapse;">
-        <tbody>${details}</tbody>
-      </table>
-      <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
-        <button onclick="document.getElementById('fiche-detail-modal').style.display='none'" class="btn btn-secondary btn-sm">Fermer</button>
-      </div>
-    </div>
-  `;
-  modal.style.display = 'flex';
-  
-  // Fermer en cliquant dehors
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.style.display = 'none';
-  });
 }
 
 async function deleteFicheLocal(local_id) {
   try {
+    logInfo('🗑️ Suppression en cours', { local_id });
     await deleteFiche(local_id);
     afficherNotification('Fiche supprimée ✓', 'success');
     logInfo('✓ Fiche locale supprimée:', { local_id });
-    
-    // Rafraîchir l'affichage si on est sur la page liste
-    if (typeof window.afficherFichesLocales === 'function') {
-      await window.afficherFichesLocales();
-    }
-    if (typeof window.updateEmptyState === 'function') {
-      window.updateEmptyState();
-    }
-    if (typeof window.updateTotalCount === 'function') {
-      window.updateTotalCount();
-    }
   } catch (e) {
     logError('Erreur suppression locale', e);
     afficherNotification('Erreur lors de la suppression', 'danger');

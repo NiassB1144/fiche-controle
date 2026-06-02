@@ -1,7 +1,13 @@
 import os
+import mimetypes
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Register MIME types for static files
+mimetypes.add_type('application/javascript', '.js')
+mimetypes.add_type('application/manifest+json', '.webmanifest')
+mimetypes.add_type('image/svg+xml', '.svg')
 
 # Securite — en production, definir SECRET_KEY dans les variables d'environnement Render
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-fiche-controle-louga-secret-key-2024')

@@ -221,6 +221,7 @@ async function syncFiches() {
       failed++;
       console.warn(`[SW] ⚠ Service Worker hors ligne - sync reportée: ${fiche.local_id}`);
   }
+  }
   
   console.log(`[SW] Synchronisation terminée: ${synced} OK, ${failed} KO`);
   return { synced, failed };
@@ -628,4 +629,4 @@ if ('periodicSync' in self.registration) {
   });
 }
 
-console.log('[SW] Service Worker chargé - version v12');
+console.log('[SW] Service Worker chargé - version v13');
