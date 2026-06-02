@@ -287,7 +287,7 @@ async function renderLocalFiches() {
     }
     
     container.innerHTML = filtered.map(fiche => `
-      <div class="fiche-card local-card p-3" data-local-id="${fiche.local_id}">
+      <div class="fiche-card local-card p-3" data-local-id="${fiche.local_id}" onclick="window.location.href = '/inspection/fiche/local/${fiche.local_id}/detail/'" style="cursor: pointer;">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
           <div class="flex-grow-1">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -311,10 +311,10 @@ async function renderLocalFiches() {
             </div>
           </div>
           <div class="d-flex gap-2">
-            <a href="/fiches/creer/?local_id=${fiche.local_id}" class="btn btn-outline-primary btn-icon" title="Modifier">
+            <a href="/inspection/fiche/local/${fiche.local_id}/edit/" class="btn btn-outline-primary btn-icon" title="Modifier" onclick="event.stopPropagation()">
               <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
             </a>
-            <button onclick="if(window.FicheApp) window.FicheApp.deleteFicheLocal('${fiche.local_id}')" class="btn btn-outline-danger btn-icon" title="Supprimer">
+            <button onclick="if(window.FicheApp) window.FicheApp.deleteFicheLocal('${fiche.local_id}'); event.stopPropagation()" class="btn btn-outline-danger btn-icon" title="Supprimer">
               <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
             </button>
           </div>

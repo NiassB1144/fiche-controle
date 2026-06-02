@@ -450,12 +450,12 @@ async function loadFiche() {
 // Boutons
 document.getElementById('btn-back').addEventListener('click', (e) => {
   e.preventDefault();
-  window.location.href = `/fiches/${encodeURIComponent(local_id)}/`;
+  window.location.href = `/inspection/fiche/local/${local_id}/detail/`;
 });
 
 document.getElementById('btn-cancel').addEventListener('click', (e) => {
   e.preventDefault();
-  window.location.href = `/fiches/${encodeURIComponent(local_id)}/`;
+  window.location.href = `/inspection/fiche/local/${local_id}/detail/`;
 });
 
 // Soumission du formulaire
@@ -477,7 +477,7 @@ document.getElementById('edit-form').addEventListener('submit', async (e) => {
 
     showAlert('✓ Fiche modifiée avec succès!', 'success');
     setTimeout(() => {
-      window.location.href = `/fiches/${encodeURIComponent(local_id)}/`;
+      window.location.href = `/inspection/fiche/local/${encodeURIComponent(local_id)}/detail/`;
     }, 1000);
 
   } catch (error) {

@@ -9,6 +9,9 @@ const STORE = 'fiches_locales';
 
 const ASSETS = [
   '/',
+  '/inspection/liste_fiches/',
+  '/inspection/fiche/local/detail/',
+  '/inspection/fiche/local/edit/',
   '/fiches/',
   '/fiches/creer/',
   '/connexion/',
@@ -16,7 +19,7 @@ const ASSETS = [
   '/static/css/style.css',
   '/static/css/fiche-mobile.css',
   '/static/js/bootstrap.bundle.min.js',
-  '/static/js/app-offline-unified.js',
+  '/static/js/app.js',
   '/static/js/offline-v4.js',
   '/static/icons/bootstrap-icons.css',
   '/manifest.json',

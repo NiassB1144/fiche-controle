@@ -365,7 +365,8 @@ async function loadFiche() {
 
 // Boutons
 document.getElementById('btn-edit').addEventListener('click', () => {
-  window.location.href = `/inspection/fiche/local/${encodeURIComponent(local_id)}/edit/`;
+  console.log('Edit:', local_id);
+  window.location.href = `/inspection/fiche/local/${local_id}/edit/`;
 });
 
 document.getElementById('btn-back').addEventListener('click', () => {
