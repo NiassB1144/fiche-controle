@@ -1,0 +1,544 @@
+﻿// ========================================================================
+// FICHE-CONTROLE v7 — app-offline-unified.js
+// Gestion IndexedDB, offline, synchronisation UNIFIÉE - VERSION FINALE
+// ========================================================================
+
+const LOG_PREFIX = '[FicheApp]';
+const DB_NAME = 'ficheControleDB_v7';  // ← NOUVEAU NOM pour éviter les conflits
+const DB_VERSION = 1;  // ← Recommencer à 1 avec la nouvelle base
+const STORE_NAME = 'fiches_locales';
+
+// Flag de ready pour signaler quand l'app est complètement chargée
+window.FicheAppReady = false;
+
+// ========================================================================
+// LOGGING
+// ========================================================================
+function logInfo(msg, data = null) { console.log(LOG_PREFIX, msg, data || ''); }
+function logWarn(msg, data = null) { console.warn(LOG_PREFIX, msg, data || ''); }
+function logError(msg, data = null) { console.error(LOG_PREFIX, msg, data || ''); }
+
+// ========================================================================
+// NOTIFICATIONS
+// ========================================================================
+function afficherNotification(message, type = 'info') {
+  const container = document.getElementById('toast-container') || creerToastContainer();
+  const toast = document.createElement('div');
+  const bgClass = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : type === 'warning' ? 'bg-warning' : 'bg-info';
+  toast.className = `toast align-items-center text-white ${bgClass} border-0 show`;
+  toast.role = 'alert';
+  toast.setAttribute('data-bs-autohide', 'true');
+  toast.setAttribute('data-bs-delay', '4000');
+  toast.innerHTML = `
+    <div class="d-flex">
+      <div class="toast-body">${escapeHtmlStatic(message)}</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  `;
+  container.appendChild(toast);
+  
+  if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    toast.addEventListener('hidden.bs.toast', () => toast.remove());
+  } else {
+    setTimeout(() => toast.remove(), 4000);
+  }
+}
+
+function creerToastContainer() {
+  let c = document.getElementById('toast-container');
+  if (c) return c;
+  c = document.createElement('div');
+  c.id = 'toast-container';
+  c.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+  c.style.zIndex = '1100';
+  document.body.appendChild(c);
+  return c;
+}
+
+function escapeHtmlStatic(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ========================================================================
+// INDEXEDDB - INITIALISATION UNIFIÉE
+// ========================================================================
+function ouvrirDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      
+      // Créer le store avec la bonne structure
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        store.createIndex('synced', 'synced', { unique: false });
+        store.createIndex('server_pk', 'server_pk', { unique: false });
+        store.createIndex('entreprise', 'entreprise', { unique: false });
+        store.createIndex('date_controle', 'date_controle', { unique: false });
+        logInfo('ObjectStore créé avec keyPath: id');
+      }
+    };
+    
+    req.onsuccess = (e) => {
+      logInfo('✓ DB ouverte:', DB_NAME);
+      resolve(e.target.result);
+    };
+    req.onerror = (e) => {
+      logError('Erreur DB', e.target.error);
+      reject(e.target.error);
+    };
+  });
+}
+
+// ========================================================================
+// CRUD - SAUVEGARDE
+// ========================================================================
+async function sauvegarderLocalement(donnees) {
+  try {
+    const db = await ouvrirDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    
+    let id = donnees.local_id || donnees.id;
+    if (!id) {
+      id = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+    
+    // Valider et nettoyer les données - s'assurer que c'est un objet valide
+    const cleanedData = {};
+    if (typeof donnees === 'object' && donnees !== null) {
+      for (const [key, value] of Object.entries(donnees)) {
+        // Ignorer les propriétés système non pertinentes
+        if (!key.startsWith('_') && key !== 'csrfmiddlewaretoken') {
+          cleanedData[key] = value;
+        }
+      }
+    }
+    
+    const fiche = {
+      id: id,
+      local_id: id,
+      data: cleanedData,
+      entreprise: cleanedData.entreprise || 'Sans nom',
+      date_controle: cleanedData.date_controle || '',
+      synced: false,
+      saved_at: new Date().toISOString()
+    };
+    
+    return new Promise((resolve, reject) => {
+      const req = store.put(fiche);
+      req.onsuccess = () => {
+        logInfo('✓ Fiche sauvegardée localement', { id });
+        afficherNotification('Fiche sauvegardée ✓', 'success');
+        resolve({ local_id: id, id: id });
+      };
+      req.onerror = (e) => {
+        logError('Erreur sauvegarde locale', e);
+        afficherNotification('Erreur sauvegarde', 'danger');
+        reject(e.target.error);
+      };
+    });
+  } catch (e) {
+    logError('Erreur sauvegarderLocalement', e);
+    throw e;
+  }
+}
+
+// ========================================================================
+// CRUD - LECTURE
+// ========================================================================
+async function getFicheByLocalId(local_id) {
+  try {
+    const db = await ouvrirDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const id = String(local_id);
+    
+    return new Promise((resolve, reject) => {
+      const req = store.get(id);
+      req.onsuccess = () => {
+        const result = req.result;
+        if (result) {
+          logInfo('✓ Fiche chargée', { id });
+          if (result.data) {
+            resolve({
+              ...result.data,
+              id: result.id,
+              local_id: result.id,
+              synced: result.synced
+            });
+          } else {
+            resolve(result);
+          }
+        } else {
+          logInfo('Fiche non trouvée', { id });
+          resolve(null);
+        }
+      };
+      req.onerror = () => {
+        logError('Erreur lecture', req.error);
+        reject(req.error);
+      };
+    });
+  } catch (e) {
+    logError('Erreur getFicheByLocalId', e);
+    return null;
+  }
+}
+
+// ========================================================================
+// RÉCUPÉRER TOUTES LES FICHES
+// ========================================================================
+async function getAllFiches() {
+  try {
+    const db = await ouvrirDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    return new Promise((resolve, reject) => {
+      const req = tx.objectStore(STORE_NAME).getAll();
+      req.onsuccess = () => {
+        const results = req.result || [];
+        const normalized = results.map(item => {
+          if (item.data) {
+            return {
+              ...item.data,
+              id: item.id,
+              local_id: item.id,
+              synced: item.synced
+            };
+          }
+          return item;
+        });
+        resolve(normalized);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    logError('Erreur getAllFiches', e);
+    return [];
+  }
+}
+
+// ========================================================================
+// CRUD - SUPPRESSION
+// ========================================================================
+async function deleteFiche(local_id) {
+  try {
+    const db = await ouvrirDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const id = String(local_id);
+    
+    return new Promise((resolve, reject) => {
+      const req = tx.objectStore(STORE_NAME).delete(id);
+      req.onsuccess = () => {
+        logInfo('✓ Fiche supprimée', { id });
+        afficherNotification('Fiche supprimée ✓', 'success');
+        resolve(true);
+      };
+      req.onerror = () => {
+        logError('Erreur suppression', req.error);
+        reject(req.error);
+      };
+    });
+  } catch (e) {
+    logError('Erreur deleteFiche', e);
+    return false;
+  }
+}
+
+// ========================================================================
+// CRUD - MODIFICATION
+// ========================================================================
+async function updateFiche(local_id, donnees) {
+  try {
+    const db = await ouvrirDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const id = String(local_id);
+    
+    return new Promise((resolve, reject) => {
+      const getReq = store.get(id);
+      
+      getReq.onsuccess = () => {
+        const existing = getReq.result;
+        if (!existing) {
+          reject(new Error(`Fiche ${id} non trouvée`));
+          return;
+        }
+        
+        const updatedData = {
+          ...(existing.data || existing),
+          ...donnees
+        };
+        
+        const updatedFiche = {
+          ...existing,
+          id: id,
+          local_id: id,
+          data: updatedData,
+          entreprise: donnees.entreprise || updatedData.entreprise || 'Sans nom',
+          date_controle: donnees.date_controle || updatedData.date_controle || '',
+          synced: false,
+          updated_at: new Date().toISOString()
+        };
+        
+        const putReq = store.put(updatedFiche);
+        putReq.onsuccess = () => {
+          logInfo('✓ Fiche modifiée', { id });
+          afficherNotification('Fiche mise à jour ✓', 'success');
+          resolve(updatedFiche);
+        };
+        putReq.onerror = () => {
+          logError('Erreur mise à jour', putReq.error);
+          reject(putReq.error);
+        };
+      };
+      getReq.onerror = () => {
+        logError('Erreur lecture', getReq.error);
+        reject(getReq.error);
+      };
+    });
+  } catch (e) {
+    logError('Erreur updateFiche', e);
+    throw e;
+  }
+}
+
+// ========================================================================
+// SYNCHRONISATION
+// ========================================================================
+async function syncAll() {
+  if (!navigator.onLine) {
+    logWarn('Hors-ligne, synchronisation annulée');
+    return { synced: 0, failed: 0 };
+  }
+  
+  logInfo('🔄 Début synchronisation...');
+  const fiches = await getAllFiches();
+  const pending = fiches.filter(f => !f.synced);
+  
+  if (pending.length === 0) {
+    logInfo('Aucune fiche à synchroniser');
+    return { synced: 0, failed: 0 };
+  }
+  
+  let synced = 0;
+  let failed = 0;
+  
+  for (const fiche of pending) {
+    try {
+      const csrfToken = getCsrfToken();
+      const dataToSend = fiche.data || fiche;
+      const url = fiche.server_pk ? `/inspection/api/fiche/${fiche.server_pk}/modifier/` : '/inspection/api/fiche/creer/';
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'X-CSRFToken': csrfToken 
+        },
+        body: JSON.stringify(dataToSend)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        await updateFiche(fiche.id, { ...dataToSend, synced: true, server_pk: data.id });
+        synced++;
+        logInfo(`✓ Fiche synchronisée: ${fiche.entreprise}`);
+      } else {
+        failed++;
+        logError(`✗ Échec synchronisation: ${fiche.entreprise}`);
+      }
+    } catch (e) {
+      failed++;
+      logError(`✗ Erreur réseau pour ${fiche.entreprise}`, e);
+    }
+  }
+  
+  if (synced > 0) {
+    afficherNotification(`${synced} synchronisée(s) ✓`, 'success');
+  }
+  if (failed > 0) {
+    afficherNotification(`${failed} échec(s)`, 'warning');
+  }
+  
+  logInfo(`Synchronisation: ${synced} OK, ${failed} KO`);
+  return { synced, failed };
+}
+
+// ========================================================================
+// UTILITAIRES
+// ========================================================================
+function getCsrfToken() {
+  const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+  if (cookie) return cookie.split('=')[1];
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute('content') : '';
+}
+
+// ========================================================================
+// STATUT RÉSEAU
+// ========================================================================
+function updateNetworkStatus() {
+  const statusBadge = document.getElementById('statut-connexion');
+  if (!statusBadge) return;
+  
+  if (navigator.onLine) {
+    statusBadge.innerHTML = '<i class="bi bi-wifi"></i> <span>En ligne</span>';
+    statusBadge.classList.remove('offline');
+  } else {
+    statusBadge.innerHTML = '<i class="bi bi-wifi-off"></i> <span>Hors-ligne</span>';
+    statusBadge.classList.add('offline');
+  }
+}
+
+// ========================================================================
+// RENDU FICHES LOCALES - LISTE
+// ========================================================================
+async function renderLocalFiches() {
+  const container = document.getElementById('local-fiches-list');
+  const section = document.getElementById('local-fiches-section');
+  
+  if (!container) return;
+  
+  try {
+    const fiches = await getAllFiches();
+    const pending = fiches.filter(f => !f.synced);
+    
+    if (pending.length === 0) {
+      if (section) section.style.display = 'none';
+      return;
+    }
+    
+    if (section) section.style.display = 'block';
+    
+    container.innerHTML = pending.map(fiche => {
+      const data = fiche.data || fiche;
+      return `
+        <div class="fiche-card local-card p-3 mb-3" data-local-id="${fiche.id}">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div class="flex-grow-1">
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <h6 class="fw-bold mb-0">
+                  <i class="bi bi-building me-1 text-secondary"></i>
+                  ${escapeHtmlStatic(data.entreprise || 'Sans nom')}
+                </h6>
+                <span class="badge bg-warning text-dark">
+                  <i class="bi bi-cloud-offline"></i> Hors-ligne
+                </span>
+              </div>
+              <div class="small text-muted d-flex flex-wrap gap-2">
+                <span><i class="bi bi-calendar"></i> ${data.date_controle || '-'}</span>
+              </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap justify-content-end">
+              <button class="btn btn-sm btn-outline-info btn-view-local" data-local-id="${fiche.id}">
+                <i class="bi bi-eye"></i> Voir
+              </button>
+              <a href="/inspection/fiche/offline/?mode=modification&id=${fiche.id}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil"></i> Modifier
+              </a>
+              <button class="btn btn-sm btn-outline-danger btn-delete-local" data-local-id="${fiche.id}">
+                <i class="bi bi-trash3"></i> Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    container.removeEventListener('click', handleLocalFicheClick);
+    container.addEventListener('click', handleLocalFicheClick);
+    
+  } catch (error) {
+    logError('Erreur renderLocalFiches', error);
+  }
+}
+
+function handleLocalFicheClick(e) {
+  const deleteBtn = e.target.closest('.btn-delete-local');
+  const viewBtn = e.target.closest('.btn-view-local');
+  
+  if (deleteBtn) {
+    const lid = deleteBtn.getAttribute('data-local-id');
+    if (confirm('Supprimer définitivement cette fiche ?')) {
+      deleteFiche(lid).then(() => renderLocalFiches());
+    }
+  } else if (viewBtn) {
+    const lid = viewBtn.getAttribute('data-local-id');
+    window.location.href = `/inspection/fiche/offline/detail/${lid}/`;
+  }
+}
+
+// ========================================================================
+// FONCTIONS EXPORTÉES
+// ========================================================================
+async function viewLocalFiche(local_id) {
+  window.location.href = `/inspection/fiche/offline/detail/${encodeURIComponent(local_id)}/`;
+}
+
+async function deleteFicheLocal(local_id) {
+  await deleteFiche(local_id);
+}
+
+// ========================================================================
+// INITIALISATION
+// ========================================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  logInfo('🚀 App v7 - Offline Unified - Initialisation...');
+  
+  updateNetworkStatus();
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+  
+  if (document.getElementById('local-fiches-list')) {
+    await renderLocalFiches();
+  }
+  
+  logInfo('✓ App prête');
+  
+  window.FicheAppReady = true;
+  const event = new CustomEvent('FicheAppReady', { detail: { timestamp: Date.now() } });
+  document.dispatchEvent(event);
+  console.log('[FicheApp] 🎉 Événement FicheAppReady dispatché!');
+});
+
+// ========================================================================
+// COMPTER LES FICHES EN ATTENTE DE SYNC
+// ========================================================================
+async function getPendingSyncCount() {
+  try {
+    const fiches = await getAllFiches();
+    return fiches.filter(f => !f.synced).length;
+  } catch (e) {
+    logError('Erreur getPendingSyncCount', e);
+    return 0;
+  }
+}
+
+// ========================================================================
+// EXPORTS GLOBAUX
+// ========================================================================
+window.FicheApp = {
+  sauvegarderLocalement,
+  saveFiche: sauvegarderLocalement,
+  updateFiche,
+  getFicheByLocalId,
+  getFiche: getFicheByLocalId,
+  getAllFiches,
+  deleteFiche,
+  deleteFicheLocal,
+  syncAll,
+  renderLocalFiches,
+  viewLocalFiche,
+  afficherNotification,
+  getPendingSyncCount,
+  logInfo, logWarn, logError
+};
+
+logInfo('✓ app-offline-unified.js v7 chargé - Nouvelle base: ' + DB_NAME);

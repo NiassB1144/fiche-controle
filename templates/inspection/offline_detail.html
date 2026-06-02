@@ -1,0 +1,737 @@
+{% extends 'inspection/base.html' %}
+{% load static %}
+
+{% block title %}Fiche Hors-ligne — Inspection du Travail{% endblock %}
+
+{% block extra_css %}
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background: #f8f9fa;
+  }
+
+  .offline-wrapper {
+    max-width: 1000px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+
+  .offline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .back-link {
+    color: #006633;
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.3s;
+  }
+
+  .back-link:hover {
+    opacity: 0.8;
+  }
+
+  .offline-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffc107;
+    color: #856404;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .fiche-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+  }
+
+  .alert {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .alert-success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+  }
+
+  .alert-danger {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+  }
+
+  .alert-info {
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+  }
+
+  .view-mode { display: block; }
+  .edit-mode { display: none; }
+  .view-mode.hidden { display: none; }
+  .edit-mode.active { display: block; }
+
+  .fiche-section {
+    padding: 1.5rem;
+    border-bottom: 1px solid #eef2f6;
+  }
+
+  .fiche-section:last-child {
+    border-bottom: none;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #006633;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 4px solid #006633;
+    padding-left: 12px;
+  }
+
+  .form-section {
+    padding: 1.5rem;
+    border-bottom: 1px solid #eef2f6;
+  }
+
+  .form-section:last-child {
+    border-bottom: none;
+  }
+
+  .form-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #006633;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 4px solid #006633;
+    padding-left: 12px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .form-control {
+    padding: 0.7rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: all 0.3s;
+    font-family: inherit;
+  }
+
+  .form-control:focus {
+    outline: none;
+    border-color: #006633;
+    box-shadow: 0 0 0 3px rgba(0, 102, 51, 0.1);
+  }
+
+  .form-value {
+    padding: 0.7rem 1rem;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    color: #333;
+    font-size: 0.95rem;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+  }
+
+  textarea.form-control {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 10px;
+    padding: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .btn {
+    padding: 0.7rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+  }
+
+  .btn-primary {
+    background: #006633;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: #005229;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 102, 51, 0.3);
+  }
+
+  .btn-primary:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-danger {
+    background: #dc3545;
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+  }
+
+  .btn-secondary {
+    background: #6c757d;
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    background: #5c636a;
+    transform: translateY(-2px);
+  }
+
+  .btn-success {
+    background: #28a745;
+    color: white;
+  }
+
+  .btn-success:hover {
+    background: #218838;
+    transform: translateY(-2px);
+  }
+
+  .loading {
+    text-align: center;
+    padding: 3rem;
+  }
+
+  .spinner {
+    border: 4px solid #f0f2f5;
+    border-top: 4px solid #006633;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 768px) {
+    .offline-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+
+    .btn-group {
+      flex-direction: column;
+    }
+
+    .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="offline-wrapper">
+  <div class="offline-header">
+    <a href="/inspection/liste_fiches/" class="back-link">
+      ← Retour aux fiches
+    </a>
+    <span class="offline-badge">📡 Hors-ligne</span>
+  </div>
+
+  <div id="alert-container"></div>
+
+  <div class="fiche-card">
+    <div class="view-mode" id="view-mode">
+      <div id="fiche-content"></div>
+      <div class="btn-group">
+        <button id="btn-edit" class="btn btn-primary">✏️ Modifier</button>
+        <button id="btn-sync" class="btn btn-success">🔄 Synchroniser</button>
+        <button id="btn-delete" class="btn btn-danger">🗑️ Supprimer</button>
+      </div>
+    </div>
+
+    <form id="edit-form" class="edit-mode">
+      <div class="form-section">
+        <div class="form-section-title">📋 Entreprise</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nom de l'entreprise *</label>
+            <input type="text" name="entreprise" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Forme juridique</label>
+            <input type="text" name="forme_juridique" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Activité principale</label>
+            <input type="text" name="activite_principale" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date d'ouverture</label>
+            <input type="date" name="date_ouverture" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📍 Adresse & Contact</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Adresse</label>
+            <input type="text" name="adresse" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Code postal</label>
+            <input type="text" name="codepostal" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ville</label>
+            <input type="text" name="ville" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Téléphone</label>
+            <input type="tel" name="telephone" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" name="email_entreprise" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📅 Contrôle</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date du contrôle *</label>
+            <input type="date" name="date_controle" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lieu du contrôle</label>
+            <input type="text" name="lieu_controle" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nom inspecteur</label>
+            <input type="text" name="inspecteur_nom" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">👨‍💼 Chef d'établissement</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nom complet</label>
+            <input type="text" name="chef_nom" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Téléphone</label>
+            <input type="tel" name="chef_cellulaire" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" name="chef_email" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">👥 Effectifs</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Cadres (Hommes)</label>
+            <input type="number" name="cadres_hommes" class="form-control" value="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cadres (Femmes)</label>
+            <input type="number" name="cadres_femmes" class="form-control" value="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ouvriers (Hommes)</label>
+            <input type="number" name="ouvriers_hommes" class="form-control" value="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ouvriers (Femmes)</label>
+            <input type="number" name="ouvriers_femmes" class="form-control" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📝 Observations</div>
+        <div class="form-row">
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label class="form-label">Observations générales</label>
+            <textarea name="observations_generales" class="form-control" rows="4"></textarea>
+          </div>
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label class="form-label">Observations diverses</label>
+            <textarea name="observations_divers" class="form-control" rows="4"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button type="submit" class="btn btn-primary" id="btn-save">✅ Sauvegarder</button>
+        <button type="button" id="btn-cancel" class="btn btn-secondary">❌ Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ========================================================================
+// OFFLINE DETAIL - VERSION CORRIGÉE
+// ========================================================================
+
+const localIdFromDjango = '{{ local_id|default:"" }}';
+const pathSegments = window.location.pathname.split('/');
+const localIdFromPath = pathSegments.find(segment => segment.startsWith('local_')) || '';
+const localIdFromQuery = new URLSearchParams(window.location.search).get('id') || '';
+
+const local_id = localIdFromDjango || localIdFromPath || localIdFromQuery;
+
+console.log('[Offline Detail] local_id:', local_id);
+
+let ficheData = null;
+
+function showAlert(message, type = 'info') {
+  const container = document.getElementById('alert-container');
+  const alert = document.createElement('div');
+  alert.className = `alert alert-${type}`;
+  alert.innerHTML = `<span>${type === 'success' ? '✓' : type === 'danger' ? '⚠' : 'ℹ'}</span> <span>${escapeHtml(message)}</span>`;
+  container.innerHTML = '';
+  container.appendChild(alert);
+  if (type === 'success') setTimeout(() => alert.remove(), 4000);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
+
+async function initialize() {
+  if (!local_id || local_id === 'None' || local_id === '') {
+    showAlert('❌ Aucun identifiant de fiche trouvé', 'danger');
+    setTimeout(() => window.location.href = '/inspection/liste_fiches/', 2000);
+    return;
+  }
+  
+  if (!window.FicheApp) {
+    setTimeout(initialize, 500);
+    return;
+  }
+
+  await loadFicheForView();
+}
+
+async function loadFicheForView() {
+  try {
+    let fiche = await window.FicheApp.getFicheByLocalId(local_id);
+    if (!fiche && window.FicheApp.getFiche) fiche = await window.FicheApp.getFiche(local_id);
+    
+    if (!fiche) {
+      showAlert(`❌ Fiche non trouvée avec l'ID: ${local_id}`, 'danger');
+      setTimeout(() => window.location.href = '/inspection/liste_fiches/', 2000);
+      return;
+    }
+    
+    // Extraire les données correctement
+    ficheData = fiche.data || fiche;
+    if (ficheData && typeof ficheData === 'object' && ficheData.data) {
+      ficheData = ficheData.data;
+    }
+    
+    // Vérifier que ficheData est un objet
+    if (!ficheData || typeof ficheData !== 'object') {
+      console.error('Données de fiche invalides:', ficheData);
+      showAlert('❌ Format de fiche invalide', 'danger');
+      return;
+    }
+    
+    renderViewMode();
+  } catch (error) {
+    console.error('Erreur chargement fiche:', error);
+    showAlert('Erreur chargement: ' + error.message, 'danger');
+  }
+}
+
+function renderViewMode() {
+  const content = document.getElementById('fiche-content');
+  if (!ficheData) {
+    content.innerHTML = '<p class="alert alert-danger">Données de fiche indisponibles</p>';
+    return;
+  }
+  
+  // Formater les données pour l'affichage
+  const formatValue = (val) => {
+    if (val === null || val === undefined || val === '') return '-';
+    if (typeof val === 'boolean') return val ? '✓ Oui' : '✗ Non';
+    return escapeHtml(String(val));
+  };
+  
+  const html = `
+    <div style="display: grid; gap: 2rem;">
+      <div class="alert alert-info">
+        <span>📌</span>
+        <span><strong>ID Local:</strong> ${escapeHtml(local_id)}</span>
+        <span style="margin-left: 1rem;"><strong>Statut:</strong> ${ficheData.synced ? '✅ Synchronisé' : '⏳ En attente de synchronisation'}</span>
+      </div>
+      
+      <div class="form-section">
+        <div class="form-section-title">📋 Entreprise</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nom</label><div class="form-value">${formatValue(ficheData.entreprise)}</div></div>
+          <div class="form-group"><label class="form-label">Forme juridique</label><div class="form-value">${formatValue(ficheData.forme_juridique)}</div></div>
+          <div class="form-group"><label class="form-label">Activité</label><div class="form-value">${formatValue(ficheData.activite_principale)}</div></div>
+          <div class="form-group"><label class="form-label">Date ouverture</label><div class="form-value">${formatValue(ficheData.date_ouverture)}</div></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📍 Adresse</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Adresse</label><div class="form-value">${formatValue(ficheData.adresse)}</div></div>
+          <div class="form-group"><label class="form-label">Code postal</label><div class="form-value">${formatValue(ficheData.codepostal)}</div></div>
+          <div class="form-group"><label class="form-label">Ville</label><div class="form-value">${formatValue(ficheData.ville)}</div></div>
+          <div class="form-group"><label class="form-label">Téléphone</label><div class="form-value">${formatValue(ficheData.telephone)}</div></div>
+          <div class="form-group"><label class="form-label">Email</label><div class="form-value">${formatValue(ficheData.email_entreprise)}</div></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📅 Contrôle</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Date</label><div class="form-value">${formatValue(ficheData.date_controle)}</div></div>
+          <div class="form-group"><label class="form-label">Lieu</label><div class="form-value">${formatValue(ficheData.lieu_controle)}</div></div>
+          <div class="form-group"><label class="form-label">Inspecteur</label><div class="form-value">${formatValue(ficheData.inspecteur_nom)}</div></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">👨‍💼 Chef établissement</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nom</label><div class="form-value">${formatValue(ficheData.chef_nom)}</div></div>
+          <div class="form-group"><label class="form-label">Téléphone</label><div class="form-value">${formatValue(ficheData.chef_cellulaire)}</div></div>
+          <div class="form-group"><label class="form-label">Email</label><div class="form-value">${formatValue(ficheData.chef_email)}</div></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">👥 Effectifs</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Cadres H</label><div class="form-value">${formatValue(ficheData.cadres_hommes)}</div></div>
+          <div class="form-group"><label class="form-label">Cadres F</label><div class="form-value">${formatValue(ficheData.cadres_femmes)}</div></div>
+          <div class="form-group"><label class="form-label">Ouvriers H</label><div class="form-value">${formatValue(ficheData.ouvriers_hommes)}</div></div>
+          <div class="form-group"><label class="form-label">Ouvriers F</label><div class="form-value">${formatValue(ficheData.ouvriers_femmes)}</div></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📋 Types de contrats</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">CDI</label><div class="form-value">${formatValue(ficheData.cdi)}</div></div>
+          <div class="form-group"><label class="form-label">CDD</label><div class="form-value">${formatValue(ficheData.cdd)}</div></div>
+          <div class="form-group"><label class="form-label">Contrat spécial</label><div class="form-value">${formatValue(ficheData.cs)}</div></div>
+          <div class="form-group"><label class="form-label">Apprentissage</label><div class="form-value">${formatValue(ficheData.c_app)}</div></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📝 Observations</div>
+        <div class="form-row">
+          <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Observations générales</label><div class="form-value" style="white-space: pre-wrap; min-height: 80px;">${formatValue(ficheData.observations_generales)}</div></div>
+          <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Observations diverses</label><div class="form-value" style="white-space: pre-wrap; min-height: 80px;">${formatValue(ficheData.observations_divers)}</div></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">🔄 Suivi</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Suite obs. orales</label><div class="form-value">${formatValue(ficheData.suite_observations_orales)}</div></div>
+          <div class="form-group"><label class="form-label">Suite obs. écrites</label><div class="form-value">${formatValue(ficheData.suite_observations_ecrites)}</div></div>
+          <div class="form-group"><label class="form-label">Mise en demeure</label><div class="form-value">${formatValue(ficheData.suite_mise_en_demeure)}</div></div>
+          <div class="form-group"><label class="form-label">PV infraction</label><div class="form-value">${formatValue(ficheData.suite_pv_infraction)}</div></div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  try {
+    content.innerHTML = html;
+  } catch (error) {
+    console.error('Erreur affichage fiche:', error);
+    content.innerHTML = '<p class="alert alert-danger">Erreur lors de l\'affichage de la fiche</p>';
+  }
+}
+
+function switchToEditMode() {
+  document.getElementById('view-mode').classList.add('hidden');
+  document.getElementById('edit-form').classList.add('active');
+  if (ficheData) {
+    const form = document.getElementById('edit-form');
+    for (const [key, value] of Object.entries(ficheData)) {
+      const field = form.querySelector(`[name="${key}"]`);
+      if (field) field.value = value || '';
+    }
+  }
+}
+
+document.getElementById('btn-edit')?.addEventListener('click', switchToEditMode);
+document.getElementById('btn-cancel')?.addEventListener('click', () => {
+  document.getElementById('view-mode').classList.remove('hidden');
+  document.getElementById('edit-form').classList.remove('active');
+});
+
+document.getElementById('btn-sync')?.addEventListener('click', async () => {
+  if (!navigator.onLine) {
+    showAlert('⚠️ Pas de connexion internet', 'danger');
+    return;
+  }
+  if (!confirm('Synchroniser cette fiche ?')) return;
+  
+  const btn = document.getElementById('btn-sync');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Synchronisation...';
+  
+  try {
+    const response = await fetch('/inspection/api/fiche/creer/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ficheData)
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      await window.FicheApp.deleteFiche(local_id);
+      showAlert('✅ Fiche synchronisée !', 'success');
+      setTimeout(() => window.location.href = `/inspection/fiches/${result.id}/`, 1500);
+    } else {
+      showAlert('❌ Erreur lors de la synchronisation', 'danger');
+    }
+  } catch (error) {
+    showAlert('❌ Erreur: ' + error.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔄 Synchroniser';
+  }
+});
+
+document.getElementById('edit-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData);
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Sauvegarde...';
+  
+  try {
+    await window.FicheApp.updateFiche(local_id, data);
+    ficheData = await window.FicheApp.getFicheByLocalId(local_id);
+    ficheData = ficheData.data || ficheData;
+    showAlert('✓ Fiche modifiée!', 'success');
+    document.getElementById('view-mode').classList.remove('hidden');
+    document.getElementById('edit-form').classList.remove('active');
+    renderViewMode();
+  } catch (error) {
+    showAlert('Erreur: ' + error.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✅ Sauvegarder';
+  }
+});
+
+document.getElementById('btn-delete')?.addEventListener('click', async () => {
+  if (!confirm('Supprimer cette fiche ?')) return;
+  const btn = document.getElementById('btn-delete');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Suppression...';
+  try {
+    await window.FicheApp.deleteFiche(local_id);
+    showAlert('✓ Fiche supprimée!', 'success');
+    setTimeout(() => window.location.href = '/inspection/liste_fiches/', 1000);
+  } catch (error) {
+    showAlert('Erreur: ' + error.message, 'danger');
+    btn.disabled = false;
+    btn.innerHTML = '🗑️ Supprimer';
+  }
+});
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initialize);
+} else {
+  initialize();
+}
+</script>
+{% endblock %}

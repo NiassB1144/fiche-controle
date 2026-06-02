@@ -477,11 +477,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ========================================================================
+// MÉTHODES OFFLINE SIMPLIFIÉES (pour templates offline)
+// ========================================================================
+async function getFiche(local_id) {
+  // Alias pour getFicheByLocalId
+  return await getFicheByLocalId(local_id);
+}
+
+async function saveFiche(data) {
+  // Créer une nouvelle fiche offline
+  return await sauvegarderLocalement(data);
+}
+
+async function updateFiche(local_id, data) {
+  // Mettre à jour une fiche existante
+  const db = await ouvrirDB();
+  const tx = db.transaction(STORE, 'readwrite');
+  const store = tx.objectStore(STORE);
+  
+  const fiche = await getFicheByLocalId(local_id);
+  if (!fiche) throw new Error('Fiche non trouvée');
+  
+  const updated = {
+    ...fiche,
+    ...data,
+    local_id: fiche.local_id,
+    saved_at: new Date().toISOString()
+  };
+  
+  return new Promise((resolve, reject) => {
+    const req = store.put(updated);
+    req.onsuccess = () => resolve(updated);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ========================================================================
 // EXPORT GLOBAL
 // ========================================================================
 window.FicheApp = {
   sauvegarderLocalement,
+  saveFiche,
+  getFiche,
   getFicheByLocalId,
+  updateFiche,
   getAllFiches,
   deleteFiche,
   deleteLocalFiche,

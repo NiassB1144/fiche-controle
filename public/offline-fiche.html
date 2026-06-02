@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiche Offline</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        .container-main {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 2rem;
+        }
+
+        .header-offline {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-offline h1 {
+            font-size: 2rem;
+            color: #222;
+            margin: 0;
+        }
+
+        .badge-offline {
+            background: #ffc107;
+            color: #000;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .mode-view { display: block; }
+        .mode-edit { display: none; }
+        .mode-view.hidden { display: none; }
+        .mode-edit.hidden { display: none; }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #006633;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #006633;
+            margin-bottom: 1rem;
+        }
+
+        .field-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .field-label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.4rem;
+        }
+
+        .field-value {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 0.7rem;
+            border-radius: 6px;
+            color: #222;
+            word-break: break-word;
+        }
+
+        .field-value.empty {
+            color: #999;
+            font-style: italic;
+        }
+
+        .form-control {
+            border-radius: 6px;
+            padding: 0.7rem 1rem;
+            border: 1px solid #ddd;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #006633;
+            box-shadow: 0 0 0 3px rgba(0, 102, 51, 0.1);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-custom {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+        }
+
+        .btn-primary-custom {
+            background: #006633;
+            color: white;
+        }
+        .btn-primary-custom:hover {
+            background: #005229;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger-custom {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-danger-custom:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary-custom {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary-custom:hover {
+            background: #5c636a;
+        }
+
+        .alert-box {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        .alert-box.show { display: block; }
+
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .spinner {
+            border: 4px solid #f0f2f5;
+            border-top: 4px solid #006633;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes slideDown {
+            from { 
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #006633;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .back-link:hover {
+            color: #005229;
+        }
+
+        .loading-view {
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .loading-view .spinner {
+            margin: 0 auto 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-main">
+        <!-- Alert -->
+        <div id="alert" class="alert-box"></div>
+
+        <!-- Loading -->
+        <div id="loading-view" class="loading-view">
+            <div class="spinner"></div>
+            <p>Chargement de la fiche...</p>
+        </div>
+
+        <!-- View Mode -->
+        <div id="view-mode" class="mode-view hidden">
+            <a href="javascript:history.back()" class="back-link">← Retour</a>
+            
+            <div class="header-offline">
+                <h1 id="fiche-title">Fiche</h1>
+                <span class="badge-offline">📱 Hors-ligne</span>
+            </div>
+
+            <div id="fiche-content"></div>
+
+            <div class="btn-group">
+                <button id="btn-edit" class="btn-custom btn-primary-custom">
+                    ✏️ Modifier
+                </button>
+                <button id="btn-delete" class="btn-custom btn-danger-custom">
+                    🗑️ Supprimer
+                </button>
+            </div>
+        </div>
+
+        <!-- Edit Mode -->
+        <div id="edit-mode" class="mode-edit hidden">
+            <a href="javascript:void(0)" id="cancel-edit-top" class="back-link">← Retour</a>
+            
+            <h1 style="margin-bottom: 2rem; color: #222;">Modifier la fiche</h1>
+
+            <form id="edit-form">
+                <!-- Entreprise -->
+                <div class="section">
+                    <div class="section-title">📋 Entreprise</div>
+                    <div class="field-row">
+                        <div class="field">
+                            <label class="field-label">Nom de l'entreprise *</label>
+                            <input type="text" name="entreprise" class="form-control" required>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Forme juridique</label>
+                            <input type="text" name="forme_juridique" class="form-control">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Secteur d'activité</label>
+                            <input type="text" name="secteur_activite" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Adresse -->
+                <div class="section">
+                    <div class="section-title">📍 Adresse</div>
+                    <div class="field-row">
+                        <div class="field">
+                            <label class="field-label">Adresse</label>
+                            <input type="text" name="adresse" class="form-control">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Code postal</label>
+                            <input type="text" name="codepostal" class="form-control">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Ville</label>
+                            <input type="text" name="ville" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contrôle -->
+                <div class="section">
+                    <div class="section-title">📅 Contrôle</div>
+                    <div class="field-row">
+                        <div class="field">
+                            <label class="field-label">Date du contrôle *</label>
+                            <input type="date" name="date_controle" class="form-control" required>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Lieu du contrôle</label>
+                            <input type="text" name="lieu_controle" class="form-control">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Nom inspecteur</label>
+                            <input type="text" name="inspecteur_nom" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contacts -->
+                <div class="section">
+                    <div class="section-title">📞 Contacts</div>
+                    <div class="field-row">
+                        <div class="field">
+                            <label class="field-label">Téléphone</label>
+                            <input type="tel" name="telephone" class="form-control">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Email entreprise</label>
+                            <input type="email" name="email_entreprise" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="submit" class="btn-custom btn-primary-custom">
+                        ✓ Sauvegarder
+                    </button>
+                    <button type="button" id="cancel-edit" class="btn-custom btn-secondary-custom">
+                        ✕ Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/offline-crud.js"></script>
+    <script>
+    (() => {
+        const DB_NAME = 'ficheControleDB';
+        const STORE = 'fiches_locales';
+        let ficheData = null;
+
+        // ============================================================
+        // UTILITIES
+        // ============================================================
+        function getLocalId() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id');
+        }
+
+        function showAlert(msg, type = 'success') {
+            const alertEl = document.getElementById('alert');
+            alertEl.textContent = msg;
+            alertEl.className = `alert-box show alert-${type}`;
+            
+            if (type === 'success') {
+                setTimeout(() => alertEl.classList.remove('show'), 3000);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ============================================================
+        // LOAD FICHE
+        // ============================================================
+        async function loadFiche() {
+            try {
+                const localId = getLocalId();
+                if (!localId) {
+                    showAlert('❌ ID fiche manquant', 'error');
+                    return;
+                }
+
+                // Attendre que OfflineCRUD soit disponible
+                if (!window.OfflineCRUD) {
+                    setTimeout(loadFiche, 100);
+                    return;
+                }
+
+                ficheData = await window.OfflineCRUD.getFiche(localId);
+                if (!ficheData) {
+                    showAlert('❌ Fiche non trouvée', 'error');
+                    return;
+                }
+
+                // Afficher la fiche
+                renderView();
+                document.getElementById('loading-view').classList.add('hidden');
+                document.getElementById('view-mode').classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Erreur:', error);
+                showAlert('❌ Erreur: ' + error.message, 'error');
+            }
+        }
+
+        // ============================================================
+        // RENDER VIEW
+        // ============================================================
+        function renderView() {
+            // Titre
+            document.getElementById('fiche-title').textContent = ficheData.entreprise || 'Fiche sans nom';
+
+            // Sections
+            const sections = {
+                '📋 Entreprise': ['entreprise', 'forme_juridique', 'secteur_activite'],
+                '📍 Adresse': ['adresse', 'codepostal', 'ville'],
+                '📅 Contrôle': ['date_controle', 'lieu_controle', 'inspecteur_nom'],
+                '📞 Contacts': ['telephone', 'email_entreprise'],
+            };
+
+            let html = '';
+            for (const [title, fields] of Object.entries(sections)) {
+                let sectionHtml = `<div class="section"><div class="section-title">${title}</div><div class="field-row">`;
+                let hasData = false;
+
+                for (const field of fields) {
+                    const value = ficheData[field];
+                    if (value) {
+                        const label = field.replace(/_/g, ' ').toUpperCase();
+                        sectionHtml += `
+                            <div class="field">
+                                <div class="field-label">${escapeHtml(label)}</div>
+                                <div class="field-value">${escapeHtml(String(value))}</div>
+                            </div>`;
+                        hasData = true;
+                    }
+                }
+
+                sectionHtml += '</div></div>';
+                if (hasData) html += sectionHtml;
+            }
+
+            document.getElementById('fiche-content').innerHTML = html;
+        }
+
+        // ============================================================
+        // EDIT MODE
+        // ============================================================
+        document.getElementById('btn-edit').addEventListener('click', () => {
+            // Remplir formulaire
+            const form = document.getElementById('edit-form');
+            for (const [key, value] of Object.entries(ficheData)) {
+                const input = form.querySelector(`[name="${key}"]`);
+                if (input) input.value = value || '';
+            }
+
+            // Switcher modes
+            document.getElementById('view-mode').classList.add('hidden');
+            document.getElementById('edit-mode').classList.remove('hidden');
+        });
+
+        // Cancel edit
+        document.getElementById('cancel-edit').addEventListener('click', () => {
+            document.getElementById('view-mode').classList.remove('hidden');
+            document.getElementById('edit-mode').classList.add('hidden');
+        });
+
+        document.getElementById('cancel-edit-top').addEventListener('click', () => {
+            document.getElementById('view-mode').classList.remove('hidden');
+            document.getElementById('edit-mode').classList.add('hidden');
+        });
+
+        // Save form
+        document.getElementById('edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            try {
+                const form = document.getElementById('edit-form');
+                const formData = new FormData(form);
+                const updates = Object.fromEntries(formData);
+
+                const localId = parseInt(getLocalId());
+                
+                // Valider
+                if (!updates.entreprise) {
+                    showAlert('❌ Le nom de l\'entreprise est obligatoire', 'error');
+                    return;
+                }
+
+                // Mettre à jour
+                await window.OfflineCRUD.updateFiche(localId, updates);
+                ficheData = await window.OfflineCRUD.getFiche(localId);
+
+                // Retour à la vue
+                renderView();
+                document.getElementById('view-mode').classList.remove('hidden');
+                document.getElementById('edit-mode').classList.add('hidden');
+
+                showAlert('✓ Fiche modifiée avec succès!', 'success');
+
+            } catch (error) {
+                console.error('Erreur:', error);
+                showAlert('❌ Erreur: ' + error.message, 'error');
+            }
+        });
+
+        // ============================================================
+        // DELETE
+        // ============================================================
+        document.getElementById('btn-delete').addEventListener('click', async () => {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cette fiche?')) return;
+
+            try {
+                const localId = parseInt(getLocalId());
+                await window.OfflineCRUD.deleteFiche(localId);
+                showAlert('✓ Fiche supprimée!', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '/inspection/liste_fiches/';
+                }, 1500);
+
+            } catch (error) {
+                console.error('Erreur:', error);
+                showAlert('❌ Erreur: ' + error.message, 'error');
+            }
+        });
+
+        // Charger au démarrage
+        document.addEventListener('DOMContentLoaded', loadFiche);
+    })();
+    </script>
+</body>
+</html>
