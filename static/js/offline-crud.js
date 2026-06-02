@@ -8,7 +8,7 @@
   'use strict';
 
   const DB_NAME = 'ficheControleDB';
-  const DB_VERSION = 3;
+  const DB_VERSION = 5;
   const STORE = 'fiches_locales';
   const SYNC_QUEUE = 'sync_queue';
 
