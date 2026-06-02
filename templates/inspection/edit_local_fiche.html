@@ -423,7 +423,7 @@ async function loadFiche() {
     if (!fiche) {
       showAlert('❌ Fiche non trouvée', 'danger');
       setTimeout(() => {
-        window.location.href = '/inspection/liste_fiches/';
+        window.location.href = '/fiches/';
       }, 2000);
       return;
     }

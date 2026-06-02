@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from django.http import HttpResponse
 from django.conf import settings
 from django.views.generic.base import RedirectView
@@ -112,4 +112,7 @@ urlpatterns = [
     # API Export — téléchargement fiches
     path('api/fiche/<int:pk>/export/json/', views.export_fiche_json, name='export_fiche_json'),
     path('api/fiche/<int:pk>/export/pdf/', views.export_fiche_pdf, name='export_fiche_pdf'),
+    
+    # Offline Routes — inclut les routes offline depuis inspection.urls
+    path('inspection/', include('inspection.urls')),
 ]
