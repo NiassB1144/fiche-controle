@@ -9,18 +9,15 @@ const STORE = 'fiches_locales';
 
 const ASSETS = [
   '/',
-  '/inspection/liste_fiches/',
-  '/inspection/fiche/local/detail/',
-  '/inspection/fiche/local/edit/',
   '/fiches/',
-  '/fiches/creer/',
   '/connexion/',
   '/static/css/bootstrap.min.css',
   '/static/css/style.css',
   '/static/css/fiche-mobile.css',
   '/static/js/bootstrap.bundle.min.js',
   '/static/js/app.js',
-  '/static/js/offline-v4.js',
+  '/static/js/offline-crud.js',
+  '/static/js/sw.js',
   '/static/icons/bootstrap-icons.css',
   '/manifest.json',
   '/static/icons/icon-192.png',
@@ -70,12 +67,14 @@ self.addEventListener('activate', (event) => {
 });
 
 // ── Sync automatique périodique ──────────────────────────────────────────
-setInterval(async () => {
-  if (navigator.onLine) {
-    console.log('[SW] 🔄 Sync périodique...');
-    await syncFiches();
-  }
-}, 30000);
+// Note: SW ne peut pas vérifier navigator.onLine directement
+// La sync se fera quand le client demande (depuis app.js)
+// setInterval(async () => {
+//   if (navigator.onLine) {  // <- Service Worker n'a pas d'accès direct
+//     console.log('[SW] 🔄 Sync périodique...');
+//     await syncFiches();
+//   }
+// }, 30000);
 
 // ── IndexedDB helpers ───────────────────────────────────────────────────
 function ouvrirDB() {
@@ -220,8 +219,7 @@ async function syncFiches() {
       }
     } catch (err) {
       failed++;
-      console.error(`[SW] ✗ Erreur sync ${fiche.local_id}:`, err);
-    }
+      console.warn(`[SW] ⚠ Service Worker hors ligne - sync reportée: ${fiche.local_id}`);
   }
   
   console.log(`[SW] Synchronisation terminée: ${synced} OK, ${failed} KO`);
