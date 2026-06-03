@@ -3,26 +3,17 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-
   <meta name="theme-color" content="#006633">
   <meta name="csrf-token" content="{{ csrf_token }}">
-
-  <meta
-    name="description"
-    content="Plateforme de contrôle de l'Inspection du Travail et de la Sécurité sociale de Louga"
-  >
+  <meta name="description" content="Plateforme de contrôle de l'Inspection du Travail et de la Sécurité sociale de Louga">
 
   <!-- PWA -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FicheControle">
 
-  <title>
-    {% block title %}Fiche de Contrôle{% endblock %}
-    — IRTSS Louga
-  </title>
+  <title>{% block title %}Fiche de Contrôle{% endblock %} — IRTSS Louga</title>
 
   <!-- Manifest -->
   <link rel="manifest" href="{% static 'manifest.json' %}">
@@ -32,219 +23,211 @@
   <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
 
   <!-- Fonts -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap"
-    rel="stylesheet"
-  >
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
 
   <!-- Bootstrap -->
   <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
-
-  <!-- Bootstrap Icons -->
   <link rel="stylesheet" href="{% static 'icons/bootstrap-icons.css' %}">
-
-  <!-- CSS -->
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
-  <link rel="stylesheet" href="{% static 'css/fiche-mobile.css' %}">>
+  <link rel="stylesheet" href="{% static 'css/fiche-mobile.css' %}">
 
   <style>
-    *{
-      margin:0;
-      padding:0;
-      box-sizing:border-box;
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
 
-    body{
-      font-family:'Inter',sans-serif;
-      background:#f4f7fc;
-      color:#1e2a3e;
-      scroll-behavior:smooth;
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f4f7fc;
+      color: #1e2a3e;
+      scroll-behavior: smooth;
     }
 
-    .navbar-modern{
-      background:linear-gradient(135deg,#006633 0%,#008844 100%);
-      box-shadow:0 8px 20px rgba(0,0,0,0.08);
-      padding:.65rem 1rem;
+    .navbar-modern {
+      background: linear-gradient(135deg, #006633 0%, #008844 100%);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+      padding: .65rem 1rem;
     }
 
-    .navbar-brand{
-      transition:transform .2s ease;
+    .navbar-brand {
+      transition: transform .2s ease;
     }
 
-    .navbar-brand:hover{
-      transform:scale(1.02);
+    .navbar-brand:hover {
+      transform: scale(1.02);
     }
 
-    .nav-link-custom{
-      color:rgba(255,255,255,.9);
-      font-weight:500;
-      border-radius:40px;
-      padding:.45rem 1.1rem;
-      transition:all .2s;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      text-decoration:none;
+    .nav-link-custom {
+      color: rgba(255,255,255,.9);
+      font-weight: 500;
+      border-radius: 40px;
+      padding: .45rem 1.1rem;
+      transition: all .2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
     }
 
     .nav-link-custom:hover,
-    .nav-link-custom.active{
-      background:rgba(255,255,255,.2);
-      color:#fff;
-      transform:translateY(-1px);
+    .nav-link-custom.active {
+      background: rgba(255,255,255,.2);
+      color: #fff;
+      transform: translateY(-1px);
     }
 
-    .btn-nouvelle-fiche{
-      background:#fff;
-      color:#006633;
-      border-radius:40px;
-      padding:.45rem 1.2rem;
-      font-weight:600;
-      transition:all .2s;
-      box-shadow:0 2px 6px rgba(0,0,0,.1);
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      border:none;
-      text-decoration:none;
+    .btn-nouvelle-fiche {
+      background: #fff;
+      color: #006633;
+      border-radius: 40px;
+      padding: .45rem 1.2rem;
+      font-weight: 600;
+      transition: all .2s;
+      box-shadow: 0 2px 6px rgba(0,0,0,.1);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: none;
+      text-decoration: none;
     }
 
-    .btn-nouvelle-fiche:hover{
-      background:#f0f9f4;
-      transform:translateY(-2px);
-      color:#004d26;
+    .btn-nouvelle-fiche:hover {
+      background: #f0f9f4;
+      transform: translateY(-2px);
+      color: #004d26;
     }
 
-    .badge-statut{
-      background:rgba(255,255,255,.2);
-      backdrop-filter:blur(4px);
-      padding:.35rem .9rem;
-      border-radius:40px;
-      font-size:.75rem;
-      color:#fff;
-      border:1px solid rgba(255,255,255,.3);
-      transition:all .3s ease;
+    .badge-statut {
+      background: rgba(255,255,255,.2);
+      backdrop-filter: blur(4px);
+      padding: .35rem .9rem;
+      border-radius: 40px;
+      font-size: .75rem;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.3);
+      transition: all .3s ease;
     }
 
-    .badge-statut.offline{
-      background:rgba(220,53,69,.85);
+    .badge-statut.offline {
+      background: rgba(220,53,69,.85);
     }
 
-    .dropdown-user .dropdown-toggle{
-      background:rgba(255,255,255,.15);
-      border:none;
-      border-radius:40px;
-      color:#fff;
-      padding:.4rem 1rem;
+    .dropdown-user .dropdown-toggle {
+      background: rgba(255,255,255,.15);
+      border: none;
+      border-radius: 40px;
+      color: #fff;
+      padding: .4rem 1rem;
     }
 
-    .dropdown-menu-modern{
-      border:none;
-      border-radius:20px;
-      box-shadow:0 12px 28px rgba(0,0,0,.1);
-      padding:.5rem 0;
+    .dropdown-menu-modern {
+      border: none;
+      border-radius: 20px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.1);
+      padding: .5rem 0;
     }
 
-    .sync-banner{
-      display:none;
-      background:#fff3cd;
-      color:#856404;
-      border-bottom:2px solid #ffc107;
-      padding:.7rem 1rem;
-      justify-content:center;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-      text-align:center;
-      font-weight:500;
-      font-size:.9rem;
+    .sync-banner {
+      display: none;
+      background: #fff3cd;
+      color: #856404;
+      border-bottom: 2px solid #ffc107;
+      padding: .7rem 1rem;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      text-align: center;
+      font-weight: 500;
+      font-size: .9rem;
     }
 
-    .sync-banner.visible{
-      display:flex;
+    .sync-banner.visible {
+      display: flex;
     }
 
-    .btn-sync{
-      border:1px solid #006633;
-      color:#006633;
-      border-radius:40px;
-      padding:.2rem .9rem;
-      text-decoration:none;
-      font-size:.8rem;
-      font-weight:600;
-      transition:all .2s;
+    .btn-sync {
+      border: 1px solid #006633;
+      color: #006633;
+      border-radius: 40px;
+      padding: .2rem .9rem;
+      text-decoration: none;
+      font-size: .8rem;
+      font-weight: 600;
+      transition: all .2s;
+      cursor: pointer;
+      background: white;
     }
 
-    .btn-sync:hover{
-      background:#006633;
-      color:#fff;
+    .btn-sync:hover {
+      background: #006633;
+      color: #fff;
     }
 
-    .alert-modern{
-      border:none;
-      border-radius:18px;
-      padding:.9rem 1.2rem;
-      box-shadow:0 4px 12px rgba(0,0,0,.05);
-      animation:slideIn .3s ease-out;
+    .alert-modern {
+      border: none;
+      border-radius: 18px;
+      padding: .9rem 1.2rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,.05);
+      animation: slideIn .3s ease-out;
     }
 
-    @keyframes slideIn{
-      from{
-        opacity:0;
-        transform:translateY(-20px);
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
       }
-      to{
-        opacity:1;
-        transform:translateY(0);
-      }
-    }
-
-    @keyframes fadeOut{
-      from{
-        opacity:1;
-      }
-      to{
-        opacity:0;
-        transform:translateY(-10px);
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
     }
 
-    .fade-out{
-      animation:fadeOut .5s ease forwards;
-    }
-
-    main{
-      min-height:70vh;
-    }
-
-    .footer{
-      background:#ffffffcc;
-      backdrop-filter:blur(10px);
-      border-top:1px solid rgba(0,0,0,.05);
-      font-size:.85rem;
-      color:#4a627a;
-    }
-
-    .toast-container{
-      z-index:9999;
-    }
-
-    .toast{
-      border-radius:16px;
-      overflow:hidden;
-      box-shadow:0 8px 20px rgba(0,0,0,.15);
-    }
-
-    @media(max-width:768px){
-
-      .btn-nouvelle-fiche{
-        font-size:.85rem;
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
       }
-
-      .badge-statut span{
-        display:none;
+      to {
+        opacity: 0;
+        transform: translateY(-10px);
       }
+    }
 
+    .fade-out {
+      animation: fadeOut .5s ease forwards;
+    }
+
+    main {
+      min-height: 70vh;
+    }
+
+    .footer {
+      background: #ffffffcc;
+      backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(0,0,0,.05);
+      font-size: .85rem;
+      color: #4a627a;
+    }
+
+    .toast-container {
+      z-index: 9999;
+    }
+
+    .toast {
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0,0,0,.15);
+    }
+
+    @media (max-width: 768px) {
+      .btn-nouvelle-fiche {
+        font-size: .85rem;
+      }
+      .badge-statut span {
+        display: none;
+      }
     }
   </style>
 
@@ -256,82 +239,46 @@
 {% if user.is_authenticated %}
 
 <nav class="navbar navbar-expand-lg navbar-modern sticky-top">
-
   <div class="container-fluid px-3 px-lg-4">
-
-    <a
-      class="navbar-brand d-flex align-items-center gap-2"
-      href="{% url 'tableau_de_bord' %}"
-    >
-      <img
-        src="{% static 'icons/logo.png' %}"
-        alt="IRTSS"
-        height="36"
-      >
-
-      <span class="fw-bold text-white">
-        IRTSS
-      </span>
+    <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'tableau_de_bord' %}">
+      <img src="{% static 'icons/logo.png' %}" alt="IRTSS" height="36">
+      <span class="fw-bold text-white">IRTSS</span>
     </a>
 
-    <button
-      class="navbar-toggler border-0 text-white"
-      type="button"
-      data-bs-toggle="collapse"
-      data-bs-target="#mainNavbar"
-    >
+    <button class="navbar-toggler border-0 text-white" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
       <i class="bi bi-list fs-3"></i>
     </button>
 
     <div class="collapse navbar-collapse" id="mainNavbar">
-
       <ul class="navbar-nav me-auto mb-2 mb-lg-0 align-items-center gap-1">
-
         <li class="nav-item">
-          <a
-            class="nav-link-custom {% if request.resolver_match.url_name == 'tableau_de_bord' %}active{% endif %}"
-            href="{% url 'tableau_de_bord' %}"
-          >
+          <a class="nav-link-custom {% if request.resolver_match.url_name == 'tableau_de_bord' %}active{% endif %}" href="{% url 'tableau_de_bord' %}">
             <i class="bi bi-house-door-fill"></i>
             <span>Accueil</span>
           </a>
         </li>
-
         <li class="nav-item">
-          <a
-            class="nav-link-custom"
-            href="{% url 'liste_fiches' %}"
-          >
+          <a class="nav-link-custom {% if request.resolver_match.url_name == 'liste_fiches' %}active{% endif %}" href="{% url 'liste_fiches' %}">
             <i class="bi bi-files"></i>
             <span>Mes fiches</span>
           </a>
         </li>
-
       </ul>
 
       <div class="d-flex align-items-center gap-3 ms-auto">
-
         <div id="statut-connexion" class="badge-statut">
           <i class="bi bi-wifi"></i>
           <span>En ligne</span>
         </div>
 
-        <a
-          href="{% url 'nouvelle_fiche' %}"
-          class="btn-nouvelle-fiche"
-        >
+        <a href="{% url 'nouvelle_fiche' %}" class="btn-nouvelle-fiche">
           <i class="bi bi-plus-circle"></i>
           <span>Nouvelle fiche</span>
         </a>
 
         <div class="dropdown dropdown-user">
-
-          <button
-            class="btn dropdown-toggle d-flex align-items-center gap-2"
-            data-bs-toggle="dropdown"
-          >
+          <button class="btn dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown">
             <i class="bi bi-person-circle"></i>
-
             <span class="d-none d-md-inline">
               {% if user.first_name %}
                 {{ user.first_name }} {{ user.last_name }}
@@ -340,656 +287,192 @@
               {% endif %}
             </span>
           </button>
-
           <ul class="dropdown-menu dropdown-menu-end dropdown-menu-modern">
-
             <li>
               <span class="dropdown-header text-muted small">
                 <i class="bi bi-envelope-at"></i>
                 {{ user.email|default:"aucun email" }}
               </span>
             </li>
-
             <li><hr class="dropdown-divider"></li>
-
             <li>
-              <a
-                class="dropdown-item text-danger fw-semibold"
-                href="{% url 'deconnexion' %}"
-              >
+              <a class="dropdown-item text-danger fw-semibold" href="{% url 'deconnexion' %}">
                 <i class="bi bi-box-arrow-right"></i>
                 Déconnexion
               </a>
             </li>
-
           </ul>
-
         </div>
-
       </div>
-
     </div>
-
   </div>
-
 </nav>
 
 <div id="sync-banner" class="sync-banner">
-
   <i class="bi bi-cloud-upload fs-5"></i>
-
   <span>
-    <strong>
-      <span id="sync-count">0</span>
-      fiche(s)
-    </strong>
-
+    <strong><span id="sync-count">0</span> fiche(s)</strong>
     sauvegardée(s) hors-ligne
   </span>
-
-  <a
-    href="#"
-    class="btn-sync"
-    onclick="window.FicheApp.syncAll(); return false;"
-  >
-    Synchroniser
-  </a>
-
+  <a href="#" class="btn-sync" id="force-sync-btn">Synchroniser</a>
 </div>
 
 {% endif %}
 
 {% if messages %}
 <div class="container-fluid px-3 px-lg-4 pt-3" id="messages-container">
-
   {% for message in messages %}
-
-  <div
-    class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show alert-modern message-item"
-    role="alert"
-  >
-
+  <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show alert-modern message-item" role="alert">
     {{ message }}
-
-    <button
-      type="button"
-      class="btn-close"
-      data-bs-dismiss="alert"
-    ></button>
-
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
   </div>
-
   {% endfor %}
-
 </div>
 {% endif %}
 
 <main class="py-4">
-
   <div class="container-fluid px-3 px-lg-4">
-
     {% block content %}{% endblock %}
-
   </div>
-
 </main>
 
 <footer class="footer text-center py-4 mt-5">
-
   <div class="container">
-
     Ministère de la Fonction Publique, du Travail et de la Réforme du Service Public
-
     <br>
-
     <span class="small opacity-75">
-
       Inspection régionale du Travail et de la Sécurité sociale de Louga —
       <span id="current-year"></span>
-
     </span>
-
   </div>
-
 </footer>
 
-<div
-  id="toast-container"
-  class="toast-container position-fixed bottom-0 end-0 p-3"
-></div>
+<div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 
 <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
-
-<script src="{% static 'js/offline-crud.js' %}?v={% now 'U' %}"></script>
-
 <script src="{% static 'js/app.js' %}?v={% now 'U' %}"></script>
 
 <script>
-/**
- * 🚀 SYSTÈME OFFLINE COMPLET v4
- * ✓ Cache automatique des fiches
- * ✓ Voir/modifier/supprimer offline
- * ✓ Sync auto quand online
- * ✓ Formulaires dynamiques
- */
+(function() {
+  'use strict';
 
-class OfflineSystem {
-  constructor() {
-    this.db = null;
-    this.isOnline = navigator.onLine;
-    this.listeners = new Map();
-  }
+  // Mise à jour de l'année
+  var yearEl = document.getElementById('current-year');
+  if (yearEl) yearEl.innerText = new Date().getFullYear();
 
-  async init() {
-    try {
-      await this.initDB();
-      this.setupListeners();
-      this.cacheCurrentPage();
-      this.createUI();
-      this.setupFormInterception();
-      console.log('✅ Système offline v4 prêt');
-    } catch (error) {
-      console.error('❌ Erreur init:', error);
-    }
-  }
-
-  initDB() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open('FicheControleDB', 4);
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => {
-        this.db = req.result;
-        console.log('✓ DB initialisée');
-        resolve();
-      };
-      req.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('fiches')) {
-          const store = db.createObjectStore('fiches', { keyPath: 'id' });
-          store.createIndex('updated_at', 'updated_at');
-        }
-        if (!db.objectStoreNames.contains('sync_queue')) {
-          const store = db.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
-          store.createIndex('status', 'status');
-          store.createIndex('action', 'action');
-        }
-      };
-    });
-  }
-
-  cacheCurrentPage() {
-    const match = window.location.pathname.match(/\/fiche\/(\d+)/);
-    if (match) {
-      const ficheId = parseInt(match[1]);
-      this.extractAndCacheFiche(ficheId);
-    }
-    document.querySelectorAll('[data-fiche-id]').forEach(elem => {
-      const ficheId = parseInt(elem.dataset.ficheId);
-      this.extractFicheFromElement(ficheId, elem);
-    });
-  }
-
-  extractAndCacheFiche(ficheId) {
-    const jsonScript = document.querySelector(`script[data-fiche="${ficheId}"]`);
-    if (jsonScript) {
-      try {
-        const data = JSON.parse(jsonScript.textContent);
-        data.id = ficheId;
-        data.cached_at = new Date().toISOString();
-        this.saveFicheDB(data);
-        console.log(`✓ Fiche ${ficheId} cachée (via JSON)`);
-        return;
-      } catch (e) {
-        console.warn('Erreur parse JSON:', e);
-      }
-    }
-    const form = document.querySelector('form[data-fiche-id]');
-    if (form) {
-      const formData = new FormData(form);
-      const data = Object.fromEntries(formData);
-      data.id = ficheId;
-      data.cached_at = new Date().toISOString();
-      this.saveFicheDB(data);
-      console.log(`✓ Fiche ${ficheId} cachée (via formulaire)`);
-      return;
-    }
-    const data = { id: ficheId, cached_at: new Date().toISOString() };
-    const fields = ['entreprise', 'date_controle', 'lieu', 'adresse', 'telephone', 'email_entreprise', 'statut', 'form_juridique', 'activite_principale'];
-    fields.forEach(field => {
-      const elem = document.querySelector(`[name="${field}"]`);
-      if (elem) data[field] = elem.value;
-    });
-    if (Object.keys(data).length > 2) {
-      this.saveFicheDB(data);
-      console.log(`✓ Fiche ${ficheId} cachée (via éléments)`);
-    }
-  }
-
-  extractFicheFromElement(ficheId, elem) {
-    const data = { id: ficheId, cached_at: new Date().toISOString() };
-    const nameElem = elem.querySelector('[data-fiche-name]');
-    if (nameElem) data.entreprise = nameElem.textContent.trim();
-    if (Object.keys(data).length > 2) this.saveFicheDB(data);
-  }
-
-  saveFicheDB(data) {
-    if (!this.db) return;
-    const tx = this.db.transaction(['fiches'], 'readwrite');
-    const store = tx.objectStore('fiches');
-    if (!data.local_id && !data.id) data.local_id = Date.now().toString();
-    if (!data.id && data.local_id) {
-      const getReq = store.get(data.local_id);
-      getReq.onsuccess = () => {
-        if (getReq.result) {
-          Object.assign(getReq.result, data);
-          store.put(getReq.result);
-        } else {
-          store.put(data);
-        }
-      };
-    } else {
-      store.put(data);
-    }
-  }
-
-  async getFichFromDB(ficheId) {
-    if (!this.db) return null;
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction(['fiches'], 'readonly');
-      const store = tx.objectStore('fiches');
-      const req = store.get(ficheId);
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-  }
-
-  async getAllFichesFromDB() {
-    if (!this.db) return [];
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction(['fiches'], 'readonly');
-      const store = tx.objectStore('fiches');
-      const req = store.getAll();
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result || []);
-    });
-  }
-
-  setupFormInterception() {
-    document.addEventListener('submit', (e) => this.handleFormSubmit(e));
-    document.addEventListener('click', (e) => this.handleFicheClick(e));
-  }
-
-  async handleFicheClick(e) {
-    const link = e.target.closest('a[href*="/fiche/"]');
-    if (!link) return;
-    const href = link.getAttribute('href');
-    const localMatch = href.match(/local\/([^\/]+)/);
-    if (localMatch) {
-      const localId = localMatch[1];
-      const fiche = await this.getFichFromDB(localId);
-      if (!fiche) {
-        e.preventDefault();
-        this.showNotification('❌ Fiche non trouvée en cache', 'error');
-      }
-    }
-  }
-
-  async handleFormSubmit(e) {
-    if (this.isOnline) return;
-    const form = e.target;
-    if (!form.matches('[data-fiche-form], form[action*="/fiche/"], form[action*="creer"]')) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    const idMatch = form.action.match(/\/fiche\/(\d+)\//);
-    const ficheId = idMatch ? parseInt(idMatch[1]) : null;
-    try {
-      let localId = data.local_id;
-      if (ficheId) {
-        data.id = ficheId;
-        if (!localId) localId = ficheId.toString();
-        data.local_id = localId;
-        await this.saveFicheDB(data);
-        this.addToQueue('update', data);
-        console.log(`✓ Fiche modifiée en offline (id: ${ficheId})`);
-        setTimeout(() => { window.location.href = `/inspection/fiches/`; }, 800);
-      } else {
-        if (!localId) localId = Date.now().toString();
-        data.local_id = localId;
-        data.id = undefined;
-        await this.saveFicheDB(data);
-        this.addToQueue('create', data);
-        console.log(`✓ Fiche créée en offline (local_id: ${localId})`);
-        // Pré-charger la page de détails pour la mettre en cache
-        fetch(`/inspection/fiche/local/${localId}/`, { method: 'GET' }).catch(() => {});
-        // Rediriger vers la liste pour voir la fiche immédiatement
-        setTimeout(() => { window.location.href = `/inspection/fiches/`; }, 800);
-      }
-    } catch (error) {
-      this.showNotification('❌ Erreur: ' + error.message, 'error');
-    }
-  }
-
-  addToQueue(action, data) {
-    if (!this.db) return;
-    const tx = this.db.transaction(['sync_queue'], 'readwrite');
-    const store = tx.objectStore('sync_queue');
-    store.add({ action, data, status: 'pending', created_at: new Date().toISOString(), attempts: 0 });
-    this.updatePendingCount();
-  }
-
-  async syncPending() {
-    if (!navigator.onLine || !this.db) return;
-    try {
-      const tx = this.db.transaction(['sync_queue'], 'readonly');
-      const index = tx.objectStore('sync_queue').index('status');
-      const items = await new Promise((resolve, reject) => {
-        const req = index.getAll('pending');
-        req.onerror = () => reject(req.error);
-        req.onsuccess = () => resolve(req.result || []);
-      });
-      console.log(`🔄 Syncing ${items.length} items...`);
-      for (const item of items) await this.syncItem(item);
-      console.log('✓ Sync terminé');
-      this.updatePendingCount();
-    } catch (error) {
-      console.error('Erreur sync:', error);
-    }
-  }
-
-  async syncItem(item) {
-    try {
-      const response = await fetch('/inspection/api/sync/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCSRFToken() },
-        body: JSON.stringify({ action: item.action, data: item.data })
-      });
-      if (response.ok) {
-        const txWrite = this.db.transaction(['sync_queue'], 'readwrite');
-        const store = txWrite.objectStore('sync_queue');
-        item.status = 'synced';
-        store.put(item);
-        console.log(`✓ Item ${item.id} synced`);
-      } else {
-        item.attempts++;
-        if (item.attempts < 3) {
-          const txWrite = this.db.transaction(['sync_queue'], 'readwrite');
-          txWrite.objectStore('sync_queue').put(item);
-        }
-      }
-    } catch (error) {
-      console.error(`✗ Sync error:`, error);
-      item.attempts++;
-      if (item.attempts < 3) {
-        const txWrite = this.db.transaction(['sync_queue'], 'readwrite');
-        txWrite.objectStore('sync_queue').put(item);
-      }
-    }
-  }
-
-  createUI() {
-    // NE PAS afficher les indicateurs - mode transparent!
-    // L'utilisateur ne doit pas savoir s'il est offline
-    console.log('UI: Mode transparent - pas d\'indicateurs visibles');
-  }
-
-  showNotification(message, type = 'success') {
-    // Silencieux - pas de notifications visibles
-    // L'utilisateur ne doit pas être interrompu
-    console.log(`[Offline] ${message}`);
-  }
-
-  updatePendingCount() {
-    if (!this.db) return;
-    const tx = this.db.transaction(['sync_queue'], 'readonly');
-    const index = tx.objectStore('sync_queue').index('status');
-    const req = index.getAll('pending');
-    req.onsuccess = () => {
-      const count = req.result.length;
-      const elem = document.getElementById('pending-count');
-      if (elem) elem.textContent = `En attente: ${count}`;
-    };
-  }
-
-  getCSRFToken() {
-    const name = 'csrftoken';
-    let cookieValue = null;
-    if (document.cookie) {
-      const cookies = document.cookie.split(';');
-      for (const cookie of cookies) {
-        if (cookie.trim().startsWith(name + '=')) {
-          cookieValue = decodeURIComponent(cookie.trim().substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue || '';
-  }
-
-  setupListeners() {
-    window.addEventListener('online', () => this.handleOnline());
-    window.addEventListener('offline', () => this.handleOffline());
-  }
-
-  handleOnline() {
-    console.log('✓ Online');
-    this.isOnline = true;
-    const indicator = document.getElementById('offline-indicator');
-    if (indicator) indicator.style.display = 'none';
-    const statusElem = document.getElementById('online-status');
-    if (statusElem) statusElem.textContent = 'Statut: 🟢 En ligne';
-    this.syncPending();
-  }
-
-  handleOffline() {
-    console.log('⚠️ Offline');
-    this.isOnline = false;
-    const indicator = document.getElementById('offline-indicator');
-    if (indicator) indicator.style.display = 'block';
-    const statusElem = document.getElementById('online-status');
-    if (statusElem) statusElem.textContent = 'Statut: 🔴 Hors ligne';
-  }
-
-  on(event, callback) {
-    if (!this.listeners.has(event)) this.listeners.set(event, new Set());
-    this.listeners.get(event).add(callback);
-  }
-
-  emit(event, data) {
-    this.listeners.get(event)?.forEach(cb => cb(data));
-  }
-}
-
-let offlineSystem;
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    offlineSystem = new OfflineSystem();
-    offlineSystem.init();
-  });
-} else {
-  offlineSystem = new OfflineSystem();
-  offlineSystem.init();
-}
-window.OfflineSystem = {
-  getFiche: (id) => offlineSystem?.getFichFromDB(id),
-  getAllFiches: () => offlineSystem?.getAllFichesFromDB(),
-  sync: () => offlineSystem?.syncPending(),
-  isOnline: () => navigator.onLine
-};
-console.log('✅ Offline System v4 chargé - Mode transparent');
-
-</script>
-
-<script>
-
-document.addEventListener('DOMContentLoaded', () => {
-
-  // année
-  const yearEl = document.getElementById('current-year');
-
-  if (yearEl) {
-    yearEl.innerText = new Date().getFullYear();
-  }
-
-  // statut connexion
+  // Statut de connexion
   function updateConnectionStatus() {
-
-    const badge = document.getElementById('statut-connexion');
-
+    var badge = document.getElementById('statut-connexion');
     if (!badge) return;
-
     if (navigator.onLine) {
-
-      badge.innerHTML = `
-        <i class="bi bi-wifi"></i>
-        <span>En ligne</span>
-      `;
-
+      badge.innerHTML = '<i class="bi bi-wifi"></i><span>En ligne</span>';
       badge.classList.remove('offline');
-
     } else {
-
-      badge.innerHTML = `
-        <i class="bi bi-wifi-off"></i>
-        <span>Hors ligne</span>
-      `;
-
+      badge.innerHTML = '<i class="bi bi-wifi-off"></i><span>Hors ligne</span>';
       badge.classList.add('offline');
-
     }
-
   }
 
   updateConnectionStatus();
-
-  window.addEventListener('online', async () => {
-
-    updateConnectionStatus();
-
-    if (window.FicheApp) {
-
-      await window.FicheApp.syncAll();
-
-      if (window.updateSyncBanner) {
-        window.updateSyncBanner();
-      }
-
-    }
-
-  });
-
+  window.addEventListener('online', updateConnectionStatus);
   window.addEventListener('offline', updateConnectionStatus);
 
-  // auto suppression messages
-  const messages = document.querySelectorAll('.message-item');
-
-  messages.forEach((message, index) => {
-
-    setTimeout(() => {
-
-      message.classList.add('fade-out');
-
-      setTimeout(() => {
-        message.remove();
-      }, 500);
-
-    }, 4000 + (index * 500));
-
-  });
-
-  // sync banner
+  // Mise à jour de la bannière de synchronisation
   async function updateSyncBanner() {
-
-    const banner = document.getElementById('sync-banner');
-    const count = document.getElementById('sync-count');
-
-    if (!banner || !count) return;
-
+    var banner = document.getElementById('sync-banner');
+    var countSpan = document.getElementById('sync-count');
+    if (!banner || !countSpan) return;
+    
     try {
-
-      if (
-        window.FicheApp &&
-        typeof window.FicheApp.getPendingSyncCount === 'function'
-      ) {
-
-        const total = await window.FicheApp.getPendingSyncCount();
-
-        count.textContent = total;
-
+      if (window.FicheApp && typeof window.FicheApp.getPendingSyncCount === 'function') {
+        var total = await window.FicheApp.getPendingSyncCount();
+        countSpan.textContent = total;
         if (total > 0) {
           banner.classList.add('visible');
         } else {
           banner.classList.remove('visible');
         }
-
       }
-
     } catch (e) {
-
-      console.error(e);
-
+      console.error('[SyncBanner] Erreur:', e);
     }
-
   }
 
   window.updateSyncBanner = updateSyncBanner;
-
   updateSyncBanner();
+  setInterval(updateSyncBanner, 30000);
 
-  setInterval(updateSyncBanner, 60000);
-
-  // service worker
-  if ('serviceWorker' in navigator) {
-
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        console.log('[SW] OK', reg.scope);
-      })
-      .catch(err => {
-        console.error('[SW] ERREUR', err);
-      });
-
+  // Bouton de synchronisation forcée
+  var syncBtn = document.getElementById('force-sync-btn');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      if (window.FicheApp && typeof window.FicheApp.syncAll === 'function') {
+        var btn = e.target;
+        var originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Syncing...';
+        btn.disabled = true;
+        try {
+          await window.FicheApp.syncAll();
+          await updateSyncBanner();
+        } catch (err) {
+          console.error('[Sync] Erreur:', err);
+        } finally {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        }
+      }
+    });
   }
 
-});
+  // Auto-synchronisation au retour en ligne
+  var lastSyncTime = 0;
+  var SYNC_DEBOUNCE = 5000;
 
+  async function throttledSync() {
+    var now = Date.now();
+    if (now - lastSyncTime < SYNC_DEBOUNCE) return;
+    lastSyncTime = now;
+    
+    if (navigator.onLine && window.FicheApp && typeof window.FicheApp.syncAll === 'function') {
+      try {
+        var result = await window.FicheApp.syncAll();
+        if (result.synced > 0) {
+          console.log('[Auto-Sync] ' + result.synced + ' fiche(s) synchronisée(s)');
+          await updateSyncBanner();
+        }
+      } catch (e) {
+        console.error('[Auto-Sync] Erreur:', e);
+      }
+    }
+  }
+
+  window.addEventListener('online', throttledSync);
+  setInterval(throttledSync, 60000);
+
+  // Auto-fermeture des messages flash
+  var messages = document.querySelectorAll('.message-item');
+  for (var i = 0; i < messages.length; i++) {
+    (function(idx) {
+      setTimeout(function() {
+        var msg = messages[idx];
+        if (msg) {
+          msg.classList.add('fade-out');
+          setTimeout(function() { if (msg) msg.remove(); }, 500);
+        }
+      }, 4000 + (idx * 500));
+    })(i);
+  }
+
+  // Enregistrement du Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/js/sw.js')
+      .then(function(reg) { console.log('[SW] Enregistré:', reg.scope); })
+      .catch(function(err) { console.error('[SW] Erreur:', err); });
+  }
+})();
 </script>
 
 {% block extra_js %}{% endblock %}
-
-<script>
-// Auto-sync avec debounce - éviter les syncs multiples
-let lastSyncTime = 0;
-const SYNC_DEBOUNCE = 5000; // 5 secondes minimum entre syncs
-
-async function throttledSync() {
-  const now = Date.now();
-  if (now - lastSyncTime < SYNC_DEBOUNCE) {
-    return; // Trop rapide, skip
-  }
-  lastSyncTime = now;
-  
-  if (typeof window.FicheApp !== 'undefined' && typeof window.FicheApp.syncAll === 'function') {
-    try {
-      const result = await window.FicheApp.syncAll();
-      if (result.synced > 0) {
-        console.log(`[Auto-Sync] ${result.synced} fiche(s) synchronisée(s)`);
-      }
-    } catch (e) {
-      console.error('[Auto-Sync] Erreur:', e);
-    }
-  }
-}
-
-// Sync au retour online
-window.addEventListener('online', async () => {
-  console.log('[Auto-Sync] Connexion rétablie');
-  await throttledSync();
-});
-
-// Sync périodique toutes les 60s (au lieu de 30s)
-setInterval(throttledSync, 60000);
-</script>
 </body>
 </html>

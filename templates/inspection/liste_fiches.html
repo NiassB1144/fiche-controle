@@ -5,7 +5,6 @@
 
 {% block extra_css %}
 <style>
-  /* Carte fiche moderne */
   .fiche-card {
     background: white;
     border: none;
@@ -49,18 +48,6 @@
   .filter-btn i {
     margin-right: 6px;
   }
-  .filter-btn.active {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  }
-  .compteur-filtre {
-    background: #f0f2f5;
-    border-radius: 40px;
-    padding: 0.2rem 0.8rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
-  
-  /* Carte fiche locale */
   .fiche-card.local-card {
     border-left-color: #ffc107;
     background: #fffef7;
@@ -80,42 +67,12 @@
     font-size: 0.7rem;
     color: #856404;
   }
-  
-  /* Optimisations mobiles */
   @media (max-width: 768px) {
-    .fiche-card {
-      border-radius: 16px;
-    }
-    .btn-icon span {
-      display: none;
-    }
-    .btn-icon {
-      padding: 0.35rem 0.65rem;
-    }
-    .filter-btn {
-      padding: 0.3rem 0.8rem;
-      font-size: 0.8rem;
-    }
-    .fiche-badge {
-      padding: 0.25rem 0.7rem;
-      font-size: 0.65rem;
-    }
+    .fiche-card { border-radius: 16px; }
+    .btn-icon span { display: none; }
+    .btn-icon { padding: 0.35rem 0.65rem; }
+    .filter-btn { padding: 0.3rem 0.8rem; font-size: 0.8rem; }
   }
-  
-  /* Animation de chargement */
-  .loader-local {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-  }
-  .loader-local .spinner-border {
-    width: 1.5rem;
-    height: 1.5rem;
-    color: #006633;
-  }
-  
-  /* Bouton sync flottant */
   .fab-sync {
     position: fixed;
     bottom: 20px;
@@ -140,9 +97,7 @@
   .fab-sync.hidden {
     opacity: 0;
     transform: scale(0);
-  }
-  .fab-sync i {
-    font-size: 1.5rem;
+    pointer-events: none;
   }
   .fab-sync.syncing {
     animation: pulse 1s infinite;
@@ -158,22 +113,14 @@
 {% block content %}
 <div class="container-fluid px-3 px-lg-4">
 
-  <!-- En-tête avec compteur -->
   <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-2">
     <div>
       <h5 class="fw-bold mb-0 d-flex align-items-center gap-2">
-        <i class="bi bi-files text-senegal fs-4"></i>
+        <i class="bi bi-files fs-4"></i>
         Mes fiches de contrôle
       </h5>
-      <div class="compteur-filtre mt-2">
-        <i class="bi bi-file-text me-1"></i> 
-        <span id="total-fiches-count">{{ fiches|length }}</span> fiche{{ fiches|length|pluralize }}
-        <span id="local-count-badge" class="ms-2" style="display:none;">
-          <i class="bi bi-hdd"></i> +<span id="local-count">0</span> locale(s)
-        </span>
-      </div>
     </div>
-    <a href="{% url 'nouvelle_fiche' %}" class="btn btn-senegal-soft shadow-sm">
+    <a href="{% url 'nouvelle_fiche' %}" class="btn btn-success shadow-sm">
       <i class="bi bi-plus-circle me-1"></i> Nouvelle fiche
     </a>
   </div>
@@ -181,24 +128,27 @@
   <!-- Filtres -->
   <div class="mb-4 d-flex flex-wrap gap-2">
     <a href="{% url 'liste_fiches' %}" 
-       class="btn filter-btn {% if not statut_filtre %}btn-senegal text-white{% else %}btn-outline-secondary{% endif %}">
+       class="btn filter-btn {% if not statut_filtre %}btn-success text-white{% else %}btn-outline-secondary{% endif %}">
       <i class="bi bi-grid-3x3-gap-fill"></i> Toutes
     </a>
     <a href="?statut=soumis" 
        class="btn filter-btn {% if statut_filtre == 'soumis' %}btn-success text-white{% else %}btn-outline-success{% endif %}">
       <i class="bi bi-send-check"></i> Soumises
     </a>
+    <a href="?statut=brouillon" 
+       class="btn filter-btn {% if statut_filtre == 'brouillon' %}btn-warning text-dark{% else %}btn-outline-warning{% endif %}">
+      <i class="bi bi-pencil"></i> Brouillons
+    </a>
   </div>
 
-  <!-- Liste des fiches -->
-  <!-- Fiches locales non synchronisées (IndexedDB) -->
+  <!-- Fiches locales (offline) -->
   <div id="local-fiches-section" class="mb-4" style="display:none;">
     <h6 class="fw-semibold mb-2">
       <i class="bi bi-hdd-network me-1"></i>
       Fiches locales (hors-ligne)
       <span class="badge bg-warning text-dark ms-2" id="local-count-header">0</span>
     </h6>
-    <div id="local-fiches-list" class="mb-3"></div>
+    <div id="local-fiches-list"></div>
   </div>
 
   <!-- Fiches serveur -->
@@ -211,16 +161,15 @@
     <div id="server-fiches-list">
       {% if fiches %}
         {% for fiche in fiches %}
-        <div class="fiche-card p-3" data-fiche-id="{{ fiche.pk }}" data-statut="{{ fiche.statut }}">
+        <div class="fiche-card p-3" data-fiche-id="{{ fiche.pk }}">
           <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-            <!-- Infos principales -->
             <div class="flex-grow-1">
               <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                 <h6 class="fw-bold mb-0">
                   <i class="bi bi-building me-1 text-secondary"></i>
                   {{ fiche.entreprise }}
                 </h6>
-                <span class="fiche-badge {% if fiche.statut == 'soumis' %}bg-success text-white{% else %}bg-success text-white{% endif %}">
+                <span class="fiche-badge bg-success text-white">
                   <i class="bi bi-check-lg"></i> Soumis
                 </span>
               </div>
@@ -232,7 +181,6 @@
                 {% endif %}
               </div>
             </div>
-            <!-- Actions -->
             <div class="d-flex gap-2">
               <a href="{% url 'detail_fiche' fiche.pk %}" class="btn btn-outline-secondary btn-icon" title="Voir">
                 <i class="bi bi-eye"></i> <span class="d-none d-sm-inline">Voir</span>
@@ -240,7 +188,7 @@
               <a href="{% url 'modifier_fiche' fiche.pk %}" class="btn btn-outline-primary btn-icon" title="Modifier">
                 <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
               </a>
-              <button class="btn btn-outline-danger btn-icon btn-delete-server" data-fiche-pk="{{ fiche.pk }}" onclick="window.deleteServerFiche({{ fiche.pk }}); return false;" title="Supprimer">
+              <button class="btn btn-outline-danger btn-icon delete-server-btn" data-pk="{{ fiche.pk }}" title="Supprimer">
                 <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
               </button>
             </div>
@@ -267,310 +215,27 @@
         Vous n'avez encore créé aucune fiche de contrôle.
       {% endif %}
     </p>
-    <a href="{% url 'nouvelle_fiche' %}" class="btn btn-senegal-soft mt-2">
+    <a href="{% url 'nouvelle_fiche' %}" class="btn btn-success mt-2">
       <i class="bi bi-plus-circle me-1"></i> Créer ma première fiche
     </a>
   </div>
 </div>
 
-<!-- Bouton flottant de synchronisation -->
 <button id="fab-sync" class="fab-sync" title="Synchroniser">
   <i class="bi bi-arrow-repeat"></i>
 </button>
 
 <script>
-  // Fonction pour afficher/masquer l'état vide
-  function updateEmptyState() {
-    const serverItems = document.querySelectorAll('#server-fiches-list .fiche-card').length;
-    const localItems = document.querySelectorAll('#local-fiches-list .fiche-card').length;
-    const emptyState = document.getElementById('empty-state');
-    const serverSection = document.getElementById('server-fiches-section');
-    const localSection = document.getElementById('local-fiches-section');
-    
-    if (serverItems === 0 && localItems === 0) {
-      emptyState.style.display = 'block';
-      serverSection.style.display = 'none';
-      if (localSection) localSection.style.display = 'none';
-    } else {
-      emptyState.style.display = 'none';
-      serverSection.style.display = 'block';
-      if (localSection && localItems > 0) localSection.style.display = 'block';
-      else if (localSection) localSection.style.display = 'none';
-    }
-  }
+(function() {
+  'use strict';
 
-  // Fonction pour afficher les fiches locales depuis IndexedDB
-  async function afficherFichesLocales() {
-    if (!window.FicheApp || typeof window.FicheApp.getAllFiches !== 'function') {
-      console.log('[Liste] FicheApp non disponible, réessai dans 500ms...');
-      setTimeout(afficherFichesLocales, 500);
-      return;
-    }
-    
-    try {
-      const fichesLocales = await window.FicheApp.getAllFiches();
-      const container = document.getElementById('local-fiches-list');
-      const section = document.getElementById('local-fiches-section');
-      const localCountSpan = document.getElementById('local-count');
-      const localCountHeader = document.getElementById('local-count-header');
-      const localCountBadge = document.getElementById('local-count-badge');
-      
-      if (!container) return;
-      
-      if (fichesLocales && fichesLocales.length > 0) {
-        container.innerHTML = '';
-        let displayCount = 0;
-        
-        for (const fiche of fichesLocales) {
-          // Filtrer selon le statut si besoin
-          const urlParams = new URLSearchParams(window.location.search);
-          const statutFiltre = urlParams.get('statut');
-          if (statutFiltre && fiche.statut !== statutFiltre) continue;
-          
-          displayCount++;
-          
-          const card = document.createElement('div');
-          card.className = 'fiche-card local-card p-3';
-          card.setAttribute('data-local-id', fiche.local_id);
-          card.innerHTML = `
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-              <div class="flex-grow-1">
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                  <h6 class="fw-bold mb-0">
-                    <i class="bi bi-building me-1 text-secondary"></i>
-                    ${escapeHtml(fiche.entreprise || 'Sans nom')}
-                  </h6>
-                  <span class="local-badge">
-                    <i class="bi bi-hdd"></i> Hors-ligne
-                  </span>
-                  <span class="fiche-badge ${fiche.statut === 'soumis' ? 'bg-success text-white' : 'bg-warning text-dark'}">
-                    ${fiche.statut === 'soumis' ? '<i class="bi bi-check-lg"></i> Soumis' : '<i class="bi bi-pencil"></i> Brouillon'}
-                  </span>
-                </div>
-                <div class="small text-muted d-flex flex-wrap gap-x-3 gap-y-1">
-                  <span><i class="bi bi-geo-alt me-1"></i> ${escapeHtml(fiche.lieu || 'Lieu non renseigné')}</span>
-                  <span><i class="bi bi-calendar-event me-1"></i> ${fiche.date_controle || 'Date non renseignée'}</span>
-                </div>
-                <div class="sync-status mt-1">
-                  <i class="bi bi-info-circle"></i> En attente de synchronisation
-                </div>
-              </div>
-              <div class="d-flex gap-2">
-                <a href="/inspection/fiche/local/${fiche.local_id}/detail/" class="btn btn-outline-secondary btn-icon" title="Voir">
-                  <i class="bi bi-eye"></i> <span class="d-none d-sm-inline">Voir</span>
-                </a>
-                <a href="/inspection/fiche/local/${fiche.local_id}/edit/" class="btn btn-outline-primary btn-icon" title="Modifier">
-                  <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
-                </a>
-                <button class="btn btn-outline-danger btn-icon btn-delete-local-liste" data-local-id="${fiche.local_id}" onclick="window.deleteLocalFiche('${fiche.local_id}'); return false;" title="Supprimer">
-                  <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
-                </button>
-              </div>
-            </div>
-          `;
-          container.appendChild(card);
-        }
-        
-        if (displayCount > 0) {
-          section.style.display = 'block';
-          if (localCountSpan) localCountSpan.textContent = displayCount;
-          if (localCountHeader) localCountHeader.textContent = displayCount;
-          if (localCountBadge) {
-            localCountBadge.style.display = 'inline';
-            localCountBadge.querySelector('#local-count').textContent = displayCount;
-          }
-        } else {
-          section.style.display = 'none';
-        }
-      } else {
-        section.style.display = 'none';
-      }
-      
-      updateEmptyState();
-      
-    } catch (error) {
-      console.error('[Liste] Erreur chargement fiches locales:', error);
-    }
-  }
-  
-  // Fonction utilitaire pour échapper le HTML
   function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
   }
-  
-  // Supprimer une fiche locale
-  window.supprimerFicheLocale = async function(localId) {
-    if (!confirm('Supprimer définitivement cette fiche locale ?')) return;
-    
-    if (window.FicheApp && typeof window.FicheApp.deleteFiche === 'function') {
-      try {
-        await window.FicheApp.deleteFiche(localId);
-        await afficherFichesLocales();
-        updateEmptyState();
-        updateTotalCount();
-        showToast('Fiche locale supprimée', 'success');
-      } catch (error) {
-        console.error('[Liste] Erreur suppression locale:', error);
-        showToast('Erreur lors de la suppression', 'danger');
-      }
-    } else {
-      showToast('Application non prête', 'warning');
-    }
-  };
-  
-  // ✅ Appels directs pour DELETE - appel API DIRECT
-  
-  window.deleteServerFiche = async function(pk) {
-    console.log('[Liste] DELETE serveur, pk=', pk);
-    
-    try {
-      // Récupérer le CSRF token
-      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-      const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
-      
-      console.log('[Liste] Appel API DELETE /api/fiche/' + pk + '/supprimer/');
-      
-      const response = await fetch(`/api/fiche/${pk}/supprimer/`, {
-        method: 'DELETE',
-        headers: { 'X-CSRFToken': csrfToken }
-      });
-      
-      if (response.ok) {
-        console.log('[Liste] ✓ Suppression réussie!');
-        showToast('Fiche supprimée avec succès', 'success');
-        setTimeout(() => { window.location.href = '/fiches/'; }, 1000);
-      } else {
-        const data = await response.json();
-        console.error('[Liste] ✗ Erreur API:', data);
-        showToast('Erreur: ' + (data.error || 'Suppression échouée'), 'danger');
-      }
-    } catch (error) {
-      console.error('[Liste] Erreur delete serveur:', error);
-      showToast('Erreur réseau: ' + error.message, 'danger');
-    }
-  };
-  
-  window.deleteLocalFiche = async function(localId) {
-    console.log('[Liste] DELETE local, localId=', localId);
-    
-    if (!window.FicheApp || !window.FicheApp.deleteFiche) {
-      console.error('[Liste] ❌ FicheApp.deleteFiche indisponible!');
-      alert('Application non initialisée. Veuillez recharger la page.');
-      return;
-    }
-    
-    try {
-      console.log('[Liste] Appel deleteFiche...');
-      await window.FicheApp.deleteFiche(localId);
-      await afficherFichesLocales();
-      updateEmptyState();
-      updateTotalCount();
-      showToast('Fiche locale supprimée', 'success');
-    } catch (error) {
-      console.error('[Liste] Erreur delete local:', error);
-      showToast('Erreur lors de la suppression: ' + error.message, 'danger');
-    }
-  };
-  
-  // ✅ AUSSI: Fonction pour attacher le listener DELETE (pour futur)
-  function attachDeleteListeners() {
-    console.log('[Liste] 🎣 Attachement des listeners de suppression...');
-    
-    // EVENT DELEGATION UNIQUE pour DELETE
-    document.addEventListener('click', async (e) => {
-      const deleteBtn = e.target.closest('.btn-delete-server');
-      const deleteLocalBtn = e.target.closest('.btn-delete-local-liste');
-      
-      // Delete fiche serveur
-      if (deleteBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const pk = parseInt(deleteBtn.dataset.fichePk, 10);
-        console.log('[Liste] 🗑️ DELETE serveur (delegation), pk=', pk);
-        if (window.FicheApp?.deleteFicheServer) {
-          await window.FicheApp.deleteFicheServer(pk);
-        } else {
-          console.error('[Liste] ❌ deleteFicheServer pas disponible!');
-        }
-      }
-      
-      // Delete fiche locale
-      if (deleteLocalBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const localId = deleteLocalBtn.dataset.localId;
-        console.log('[Liste] 🗑️ DELETE local (delegation), localId=', localId);
-        if (window.FicheApp?.deleteFiche) {
-          if (!confirm('Supprimer définitivement cette fiche locale ?')) return;
-          await window.FicheApp.deleteFiche(localId);
-          await afficherFichesLocales();
-          showToast('Fiche locale supprimée', 'success');
-        } else {
-          console.error('[Liste] ❌ deleteFiche pas disponible!');
-        }
-      }
-    }, true); // Capture phase
-    
-    console.log('[Liste] ✅ Listeners DELETE attachés et prêts!');
-  }
-  
-  // Écouter l'événement FicheAppReady
-  // OU si déjà chargé, déclencher immédiatement
-  function setupDeleteListeners() {
-    console.log('[Liste] 🎯 setupDeleteListeners() appelée');
-    console.log('[Liste] window.FicheAppReady?', window.FicheAppReady);
-    console.log('[Liste] window.FicheApp?', !!window.FicheApp);
-    
-    if (window.FicheApp && window.FicheApp.deleteFicheServer) {
-      attachDeleteListeners();
-    } else {
-      console.warn('[Liste] ⚠️ FicheApp pas encore chargé');
-    }
-  }
-  
-  // Écouter l'événement FicheAppReady
-  document.addEventListener('FicheAppReady', (e) => {
-    console.log('[Liste] 🎉 Événement FicheAppReady reçu!');
-    setupDeleteListeners();
-  });
-  
-  // Vérifier si déjà chargé (au cas où l'événement a été dispatché AVANT qu'on attache le listener)
-  if (window.FicheAppReady) {
-    console.log('[Liste] ℹ️ FicheAppReady déjà true, setup immédiatement');
-    setupDeleteListeners();
-  } else {
-    console.log('[Liste] ⏳ En attente de FicheAppReady...');
-  }
-  
-  // Synchronisation
-  window.syncAll = async function() {
-    const btn = document.getElementById('fab-sync');
-    if (!window.FicheApp || typeof window.FicheApp.syncAll !== 'function') {
-      showToast('Synchronisation non disponible', 'warning');
-      return;
-    }
-    
-    btn.classList.add('syncing');
-    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
-    
-    try {
-      const result = await window.FicheApp.syncAll();
-      showToast(`${result.synced} fiche(s) synchronisée(s)`, 'success');
-      await afficherFichesLocales();
-      window.location.reload();
-    } catch (error) {
-      showToast('Erreur lors de la synchronisation', 'danger');
-      console.error(error);
-    } finally {
-      btn.classList.remove('syncing');
-      btn.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
-    }
-  };
-  
-  // Toast notification
+
   function showToast(message, type = 'success') {
     let toast = document.getElementById('liste-toast');
     if (!toast) {
@@ -595,21 +260,179 @@
       `;
       document.body.appendChild(toast);
     }
-    
     toast.textContent = message;
     toast.style.opacity = '1';
-    setTimeout(() => {
-      toast.style.opacity = '0';
-    }, 2000);
+    setTimeout(() => { toast.style.opacity = '0'; }, 2000);
   }
-  
-  // FAB button scroll behavior
-  function initFabButton() {
+
+  async function renderLocalFiches() {
+    const container = document.getElementById('local-fiches-list');
+    const section = document.getElementById('local-fiches-section');
+    const localCountHeader = document.getElementById('local-count-header');
+    
+    if (!container) return;
+    
+    try {
+      if (!window.FicheApp || typeof window.FicheApp.getAllFiches !== 'function') {
+        setTimeout(renderLocalFiches, 500);
+        return;
+      }
+      
+      const allFiches = await window.FicheApp.getAllFiches();
+      const pending = allFiches.filter(f => !f.synced);
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const statutFiltre = urlParams.get('statut');
+      
+      let filtered = pending;
+      if (statutFiltre) {
+        filtered = pending.filter(f => f.statut === statutFiltre);
+      }
+      
+      if (filtered.length === 0) {
+        section.style.display = 'none';
+        updateEmptyState();
+        return;
+      }
+      
+      section.style.display = 'block';
+      if (localCountHeader) localCountHeader.textContent = filtered.length;
+      
+      container.innerHTML = filtered.map(fiche => `
+        <div class="fiche-card local-card p-3" data-local-id="${fiche.local_id}">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div class="flex-grow-1">
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <h6 class="fw-bold mb-0">
+                  <i class="bi bi-building me-1 text-secondary"></i>
+                  ${escapeHtml(fiche.entreprise || 'Sans nom')}
+                </h6>
+                <span class="local-badge">
+                  <i class="bi bi-hdd"></i> Hors-ligne
+                </span>
+                <span class="fiche-badge ${fiche.statut === 'soumis' ? 'bg-success text-white' : 'bg-warning text-dark'}">
+                  ${fiche.statut === 'soumis' ? '<i class="bi bi-check-lg"></i> Soumis' : '<i class="bi bi-pencil"></i> Brouillon'}
+                </span>
+              </div>
+              <div class="small text-muted d-flex flex-wrap gap-x-3 gap-y-1">
+                <span><i class="bi bi-geo-alt me-1"></i> ${escapeHtml(fiche.lieu || 'Lieu non renseigné')}</span>
+                <span><i class="bi bi-calendar-event me-1"></i> ${fiche.date_controle || 'Date non renseignée'}</span>
+              </div>
+              <div class="sync-status mt-1">
+                <i class="bi bi-cloud-arrow-up"></i> En attente de synchronisation
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              <a href="/inspection/fiche/local/${fiche.local_id}/detail/" class="btn btn-outline-secondary btn-icon" title="Voir">
+                <i class="bi bi-eye"></i> <span class="d-none d-sm-inline">Voir</span>
+              </a>
+              <a href="/inspection/fiche/local/${fiche.local_id}/edit/" class="btn btn-outline-primary btn-icon" title="Modifier">
+                <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
+              </a>
+              <button class="btn btn-outline-danger btn-icon delete-local-btn" data-local-id="${fiche.local_id}" title="Supprimer">
+                <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      
+      // Attacher les événements de suppression locale
+      container.querySelectorAll('.delete-local-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const localId = btn.dataset.localId;
+          if (confirm('Supprimer définitivement cette fiche locale ?')) {
+            if (window.FicheApp && window.FicheApp.deleteFiche) {
+              await window.FicheApp.deleteFiche(localId);
+              await renderLocalFiches();
+              updateEmptyState();
+              showToast('Fiche locale supprimée', 'success');
+              if (window.updateSyncBanner) window.updateSyncBanner();
+            }
+          }
+        });
+      });
+      
+      updateEmptyState();
+    } catch (error) {
+      console.error('[Liste] Erreur renderLocalFiches:', error);
+    }
+  }
+
+  function updateEmptyState() {
+    const serverItems = document.querySelectorAll('#server-fiches-list .fiche-card').length;
+    const localCards = document.querySelectorAll('#local-fiches-list .fiche-card').length;
+    const emptyState = document.getElementById('empty-state');
+    const serverSection = document.getElementById('server-fiches-section');
+    const localSection = document.getElementById('local-fiches-section');
+    
+    if (serverItems === 0 && localCards === 0) {
+      emptyState.style.display = 'block';
+      serverSection.style.display = 'none';
+      if (localSection) localSection.style.display = 'none';
+    } else {
+      emptyState.style.display = 'none';
+      serverSection.style.display = 'block';
+    }
+  }
+
+  // Suppression fiche serveur
+  document.querySelectorAll('.delete-server-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const pk = btn.dataset.pk;
+      if (!confirm('Supprimer définitivement cette fiche ?')) return;
+      
+      try {
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+        
+        const response = await fetch(`/api/fiche/${pk}/supprimer/`, {
+          method: 'DELETE',
+          headers: { 'X-CSRFToken': csrfToken }
+        });
+        
+        if (response.ok) {
+          showToast('Fiche supprimée avec succès', 'success');
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          const data = await response.json();
+          showToast('Erreur: ' + (data.error || 'Suppression échouée'), 'danger');
+        }
+      } catch (error) {
+        showToast('Erreur réseau: ' + error.message, 'danger');
+      }
+    });
+  });
+
+  // Synchronisation
+  async function syncAll() {
     const fab = document.getElementById('fab-sync');
-    if (!fab) return;
+    if (!window.FicheApp || typeof window.FicheApp.syncAll !== 'function') {
+      showToast('Synchronisation non disponible', 'warning');
+      return;
+    }
     
-    fab.addEventListener('click', () => window.syncAll());
-    
+    fab.classList.add('syncing');
+    try {
+      const result = await window.FicheApp.syncAll();
+      showToast(`${result.synced} fiche(s) synchronisée(s)`, 'success');
+      await renderLocalFiches();
+      if (window.updateSyncBanner) window.updateSyncBanner();
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+      showToast('Erreur lors de la synchronisation', 'danger');
+      console.error(error);
+    } finally {
+      fab.classList.remove('syncing');
+    }
+  }
+
+  // FAB button
+  const fab = document.getElementById('fab-sync');
+  if (fab) {
+    fab.addEventListener('click', syncAll);
     let lastScroll = 0;
     window.addEventListener('scroll', () => {
       const currentScroll = window.pageYOffset;
@@ -621,53 +444,11 @@
       lastScroll = currentScroll;
     });
   }
-  
-  // Mise à jour du compteur total
-  function updateTotalCount() {
-    const serverCount = document.querySelectorAll('#server-fiches-list .fiche-card').length;
-    const localCards = document.querySelectorAll('#local-fiches-list .fiche-card');
-    let localCount = 0;
-    
-    // Filtrer selon le statut actuel
-    const urlParams = new URLSearchParams(window.location.search);
-    const statutFiltre = urlParams.get('statut');
-    
-    localCards.forEach(card => {
-      const badge = card.querySelector('.fiche-badge');
-      if (badge) {
-        const isSoumis = badge.innerText.includes('Soumis');
-        if (!statutFiltre || 
-            (statutFiltre === 'soumis' && isSoumis) ||
-            (statutFiltre === 'brouillon' && !isSoumis)) {
-          localCount++;
-        }
-      }
-    });
-    
-    const totalSpan = document.getElementById('total-fiches-count');
-    if (totalSpan) {
-      totalSpan.textContent = serverCount + localCount;
-    }
-  }
-  
+
   // Initialisation
   document.addEventListener('DOMContentLoaded', async () => {
-    await afficherFichesLocales();
-    initFabButton();
-    updateTotalCount();
-    
-    // Écouter les changements de filtres
-    const observer = new MutationObserver(() => {
-      updateTotalCount();
-    });
-    
-    const localList = document.getElementById('local-fiches-list');
-    if (localList) {
-      observer.observe(localList, { childList: true, subtree: true });
-    }
+    await renderLocalFiches();
   });
-  
-  // Exposer globalement
-  window.afficherFichesLocales = afficherFichesLocales;
+})();
 </script>
 {% endblock %}

@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from .models import FicheControle
 from .forms import CreerUtilisateurForm
@@ -30,7 +31,6 @@ SECTION_TITRES = [
     "Conclusions & Signatures",
 ]
 
-# Champs booléens du modèle
 BOOL_FIELDS = [
     'remuneration_au_temps_1', 'remuneration_au_temps_2',
     'remuneration_a_la_piece_1', 'remuneration_a_la_piece_2',
@@ -40,13 +40,11 @@ BOOL_FIELDS = [
     'delai_reception', 'delai_un_mois', 'delai_autres',
 ]
 
-# Champs entiers du modèle
 INT_FIELDS = [
     'cadres_hommes', 'cadres_femmes', 'ouvriers_hommes', 'ouvriers_femmes',
     'cdi', 'cdd', 'cs', 'c_app', 'autres_contrats',
 ]
 
-# Champs date du modèle
 DATE_FIELDS = ['date_controle', 'date_ouverture']
 
 
@@ -66,7 +64,7 @@ def _construire_fiche(data, inspecteur, fiche=None):
         val = data[fname]
 
         if fname in BOOL_FIELDS:
-            setattr(fiche, fname, val in (True, 'on', 'true', '1'))
+            setattr(fiche, fname, val in (True, 'on', 'true', '1', 'on'))
         elif fname in INT_FIELDS:
             try:
                 setattr(fiche, fname, int(val) if val not in ('', None) else 0)
@@ -75,7 +73,6 @@ def _construire_fiche(data, inspecteur, fiche=None):
         elif fname in DATE_FIELDS:
             if val and val != '':
                 try:
-                    from datetime import datetime
                     setattr(fiche, fname, datetime.strptime(str(val), '%Y-%m-%d').date())
                 except (ValueError, TypeError):
                     if fname == 'date_controle':
@@ -123,14 +120,17 @@ def deconnexion(request):
 def tableau_de_bord(request):
     user = request.user
     fiches = FicheControle.objects.all() if user.is_staff else FicheControle.objects.filter(inspecteur=user)
-    total       = fiches.count()
-    brouillons  = fiches.filter(statut='brouillon').count()
-    soumises    = fiches.filter(statut='soumis').count()
+    total = fiches.count()
+    brouillons = fiches.filter(statut='brouillon').count()
+    soumises = fiches.filter(statut='soumis').count()
     cette_annee = fiches.filter(created_at__year=timezone.now().year).count()
-    recentes    = fiches[:5]
+    recentes = fiches.order_by('-created_at')[:5]
     return render(request, 'inspection/tableau_de_bord.html', {
-        'total': total, 'brouillons': brouillons,
-        'soumises': soumises, 'cette_annee': cette_annee, 'recentes': recentes,
+        'total': total,
+        'brouillons': brouillons,
+        'soumises': soumises,
+        'cette_annee': cette_annee,
+        'recentes': recentes,
     })
 
 
@@ -140,20 +140,18 @@ def liste_fiches(request):
     fiches = FicheControle.objects.all().select_related('inspecteur') if user.is_staff \
              else FicheControle.objects.filter(inspecteur=user)
     
-    # Recherche par nom d'entreprise
     search = request.GET.get('search', '').strip()
     if search:
         fiches = fiches.filter(entreprise__icontains=search)
     
-    # Filtrage par statut (garde le support legacy)
     statut = request.GET.get('statut', '')
     if statut:
         fiches = fiches.filter(statut=statut)
     
     return render(request, 'inspection/liste_fiches.html', {
-        'fiches': fiches, 
+        'fiches': fiches,
         'statut_filtre': statut,
-        'search_query': search
+        'search_query': search,
     })
 
 
@@ -170,7 +168,6 @@ def modifier_fiche(request, pk):
     else:
         fiche = get_object_or_404(FicheControle, pk=pk, inspecteur=request.user)
 
-    # Sérialiser la fiche pour pré-remplir le formulaire JS
     fiche_data = {}
     for field in FicheControle._meta.get_fields():
         fname = field.name
@@ -202,13 +199,10 @@ def detail_fiche(request, pk):
     return render(request, 'inspection/detail_fiche.html', {'fiche': fiche})
 
 
+@require_http_methods(['POST', 'DELETE'])
 @login_required
 def supprimer_fiche(request, pk):
-    """Supprime une fiche directement. Accepte POST/DELETE uniquement."""
-    if request.method not in ['POST', 'DELETE']:
-        messages.error(request, 'Méthode non autorisée.')
-        return redirect('liste_fiches')
-    
+    """Supprime une fiche."""
     if request.user.is_staff:
         fiche = get_object_or_404(FicheControle, pk=pk)
     else:
@@ -217,11 +211,9 @@ def supprimer_fiche(request, pk):
     nom = fiche.entreprise
     fiche.delete()
     
-    # Retourner JSON au lieu de template
-    if request.headers.get('Accept') == 'application/json' or request.is_ajax():
+    if request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({'success': True, 'message': f'Fiche "{nom}" supprimée.'})
     
-    # Fallback: redirection directe (pour POST et DELETE)
     messages.success(request, f'Fiche "{nom}" supprimée.')
     return redirect('liste_fiches')
 
@@ -275,7 +267,7 @@ def supprimer_utilisateur(request, pk):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# API JSON — Créer une fiche (utilisée par le formulaire single-page)
+# API JSON — Créer une fiche
 # ──────────────────────────────────────────────────────────────────────────────
 @login_required
 def api_fiche_creer(request):
@@ -283,10 +275,12 @@ def api_fiche_creer(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body.decode('utf-8'))
         fiche = _construire_fiche(data, request.user)
         fiche.save()
         return JsonResponse({'success': True, 'id': fiche.pk, 'entreprise': fiche.entreprise})
+    except json.JSONDecodeError as e:
+        return JsonResponse({'error': f'JSON invalide: {str(e)}'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -299,15 +293,19 @@ def api_fiche_modifier(request, pk):
     """Reçoit toutes les données de la fiche en JSON et met à jour la fiche."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    
     if request.user.is_staff:
         fiche = get_object_or_404(FicheControle, pk=pk)
     else:
         fiche = get_object_or_404(FicheControle, pk=pk, inspecteur=request.user)
+    
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body.decode('utf-8'))
         fiche = _construire_fiche(data, request.user, fiche)
         fiche.save()
         return JsonResponse({'success': True, 'id': fiche.pk})
+    except json.JSONDecodeError as e:
+        return JsonResponse({'error': f'JSON invalide: {str(e)}'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -317,7 +315,7 @@ def api_fiche_modifier(request, pk):
 # ──────────────────────────────────────────────────────────────────────────────
 @login_required
 def api_fiche_supprimer(request, pk):
-    """Supprime une fiche via API JSON (pas de template)."""
+    """Supprime une fiche via API JSON."""
     if request.method != 'DELETE':
         return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
     
@@ -335,14 +333,14 @@ def api_fiche_supprimer(request, pk):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# API JSON — Sync hors-ligne (fiches sauvegardées dans IndexedDB)
+# API JSON — Sync hors-ligne
 # ──────────────────────────────────────────────────────────────────────────────
 @login_required
 def api_sync(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body.decode('utf-8'))
         fiches_data = data.get('fiches', [])
         synchronisees = 0
         result_fiches = []
@@ -373,18 +371,21 @@ def api_sync(request):
             else:
                 fiche = _construire_fiche(f, request.user, fiche)
 
-            fiche.local_id = local_id or fiche.local_id or ''
+            if local_id:
+                fiche.local_id = str(local_id)
             fiche.save()
             synchronisees += 1
             result_fiches.append({'local_id': fiche.local_id, 'server_pk': fiche.pk})
 
         return JsonResponse({'synchronisees': synchronisees, 'fiches': result_fiches})
+    except json.JSONDecodeError as e:
+        return JsonResponse({'error': f'JSON invalide: {str(e)}'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# API Export — Télécharger une fiche en JSON
+# API Export — JSON
 # ──────────────────────────────────────────────────────────────────────────────
 @login_required
 def export_fiche_json(request, pk):
@@ -425,7 +426,7 @@ def export_fiche_json(request, pk):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# API Export — Télécharger une fiche en PDF
+# API Export — PDF
 # ──────────────────────────────────────────────────────────────────────────────
 @login_required
 def export_fiche_pdf(request, pk):
@@ -474,12 +475,12 @@ def export_fiche_pdf(request, pk):
     infos_generales = [
         ['Champ', 'Valeur'],
         ['Date du contrôle', fiche.date_controle.isoformat() if fiche.date_controle else ''],
-        ['Lieu', fiche.lieu],
+        ['Lieu', fiche.lieu or ''],
         ['Statut', fiche.get_statut_display()],
         ['Inspecteur', f"{fiche.inspecteur.first_name} {fiche.inspecteur.last_name}"],
-        ['Adresse', fiche.adresse],
-        ['Téléphone', fiche.telephone],
-        ['Email', fiche.email_entreprise],
+        ['Adresse', fiche.adresse or ''],
+        ['Téléphone', fiche.telephone or ''],
+        ['Email', fiche.email_entreprise or ''],
     ]
     
     table = Table(infos_generales, colWidths=[2*inch, 4*inch])
@@ -502,8 +503,8 @@ def export_fiche_pdf(request, pk):
         story.append(Paragraph("Chef d'établissement", heading_style))
         chef_data = [
             ['Nom', fiche.chef_nom],
-            ['Téléphone', fiche.chef_cellulaire],
-            ['Email', fiche.chef_email],
+            ['Téléphone', fiche.chef_cellulaire or ''],
+            ['Email', fiche.chef_email or ''],
         ]
         chef_table = Table(chef_data, colWidths=[2*inch, 4*inch])
         chef_table.setStyle(TableStyle([
@@ -546,9 +547,8 @@ def export_fiche_pdf(request, pk):
     
     effectifs_data = [
         ['Catégorie', 'Hommes', 'Femmes', 'Total'],
-        ['Cadres', str(fiche.cadres_hommes or 0), str(fiche.cadres_femmes or 0), str(fiche.cadres_total)],
-        ['Ouvriers', str(fiche.ouvriers_hommes or 0), str(fiche.ouvriers_femmes or 0), str(fiche.ouvriers_total)],
-        ['TOTAL', '', '', str(fiche.effectif_total)],
+        ['Cadres', str(fiche.cadres_hommes or 0), str(fiche.cadres_femmes or 0), str((fiche.cadres_hommes or 0) + (fiche.cadres_femmes or 0))],
+        ['Ouvriers', str(fiche.ouvriers_hommes or 0), str(fiche.ouvriers_femmes or 0), str((fiche.ouvriers_hommes or 0) + (fiche.ouvriers_femmes or 0))],
     ]
     
     story.append(Paragraph("Effectifs", heading_style))
@@ -574,7 +574,7 @@ def export_fiche_pdf(request, pk):
         ['CS', str(fiche.cs or 0)],
         ['C APP', str(fiche.c_app or 0)],
         ['Autres', str(fiche.autres_contrats or 0)],
-        ['TOTAL', str(fiche.contrats_total)],
+        ['TOTAL', str((fiche.cdi or 0) + (fiche.cdd or 0) + (fiche.cs or 0) + (fiche.c_app or 0) + (fiche.autres_contrats or 0))],
     ]
     
     story.append(Paragraph("Contrats de travail", heading_style))
@@ -598,10 +598,13 @@ def export_fiche_pdf(request, pk):
     return response
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# VUES POUR FICHES LOCALES (OFFLINE)
+# ──────────────────────────────────────────────────────────────────────────────
 def detail_local_fiche(request, local_id):
     """
-    Affiche le détail d'une fiche créée en offline (lecture seule)
-    La fiche est chargée depuis IndexedDB côté client
+    Affiche le détail d'une fiche créée en offline.
+    La fiche est chargée depuis IndexedDB côté client.
     """
     return render(request, 'inspection/detail_local_fiche.html', {
         'local_id': local_id,
@@ -610,8 +613,8 @@ def detail_local_fiche(request, local_id):
 
 def edit_local_fiche(request, local_id):
     """
-    Affiche le formulaire de modification d'une fiche offline
-    La fiche est chargée depuis IndexedDB côté client
+    Affiche le formulaire de modification d'une fiche offline.
+    La fiche est chargée depuis IndexedDB côté client.
     """
     return render(request, 'inspection/edit_local_fiche.html', {
         'local_id': local_id,
@@ -619,17 +622,13 @@ def edit_local_fiche(request, local_id):
 
 
 @csrf_exempt
+@require_http_methods(['DELETE', 'POST'])
 def delete_local_fiche(request, local_id):
     """
-    Supprime une fiche locale (cette route existe pour la symétrie)
-    La suppression réelle se fait côté client dans IndexedDB
-    Cette vue confirme simplement l'opération
+    Supprime une fiche locale (cette route existe pour la symétrie).
+    La suppression réelle se fait côté client dans IndexedDB.
+    Cette vue confirme simplement l'opération.
     """
-    if request.method != 'DELETE' and request.method != 'POST':
-        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
-    
-    # Cette suppression est gérée côté client
-    # On retourne juste un succès
     return JsonResponse({
         'success': True,
         'message': f'Fiche locale {local_id} prête à être supprimée'
@@ -638,7 +637,6 @@ def delete_local_fiche(request, local_id):
 
 def view_local_fiche(request, local_id):
     """
-    (DEPRECATED - Utilisé à titre de compatibilité)
-    Redirige vers la page de détail
+    Redirige vers la page de détail.
     """
     return redirect('detail_local_fiche', local_id=local_id)

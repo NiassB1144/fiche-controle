@@ -2,412 +2,183 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#006633">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Hors ligne — IRTSS Louga</title>
+  <title>Mode Hors-Ligne — Fiche de Contrôle</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #e0f2e9 0%, #f4f7fc 100%);
-      color: #1e2a3e;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #006633 0%, #00994d 100%);
       min-height: 100vh;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 1rem;
+      padding: 20px;
+      color: #333;
     }
-    .card {
+    
+    .offline-container {
       background: white;
-      border-radius: 32px;
-      box-shadow: 0 20px 35px -12px rgba(0,0,0,0.1);
-      padding: 2rem 1.5rem;
+      border-radius: 16px;
+      padding: 40px 20px;
       max-width: 500px;
       width: 100%;
       text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     }
-    .icon {
-      font-size: 4rem;
-      margin-bottom: 1rem;
-      display: inline-block;
-      animation: float 3s ease-in-out infinite;
+    
+    .offline-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      opacity: 0.7;
+      font-size: 80px;
     }
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
+    
+    h1 {
+      font-size: 24px;
+      color: #006633;
+      margin-bottom: 10px;
     }
-    h1 { 
-      font-size: 1.5rem; 
-      font-weight: 700; 
-      background: linear-gradient(120deg, #006633, #008844);
-      background-clip: text;
-      -webkit-background-clip: text;
-      color: transparent;
-      margin-bottom: 0.5rem;
+    
+    p {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 20px;
     }
-    p { color: #666; font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.6; }
-    .btn-group {
+    
+    .actions {
       display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      justify-content: center;
-      margin-bottom: 1.5rem;
+      flex-direction: column;
+      gap: 10px;
     }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: #006633;
-      color: white;
+    
+    button, a {
+      padding: 12px 24px;
+      border-radius: 8px;
       border: none;
-      border-radius: 60px;
-      padding: 0.7rem 1.5rem;
-      font-size: 0.9rem;
-      font-weight: 600;
+      font-size: 14px;
       cursor: pointer;
       text-decoration: none;
-      transition: all 0.2s;
+      transition: all 0.3s ease;
+      font-weight: 600;
     }
-    .btn i { font-size: 1.1rem; }
-    .btn:hover { 
-      background: #008844; 
+    
+    .btn-primary {
+      background: #006633;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #005522;
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0,102,51,0.3);
     }
-    .btn-outline {
-      background: transparent;
-      color: #006633;
-      border: 2px solid #006633;
+    
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
     }
-    .btn-outline:hover { 
-      background: #006633; 
-      color: white; 
+    
+    .btn-secondary:hover {
+      background: #e0e0e0;
+      transform: translateY(-2px);
     }
-    #local-fiches-section { 
-      margin-top: 1.5rem; 
+    
+    .tips {
+      background: #f9f9f9;
+      border-left: 4px solid #006633;
+      padding: 15px;
       text-align: left;
-      border-top: 1px solid #eef2f6;
-      padding-top: 1.5rem;
+      margin-top: 30px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #666;
     }
-    #local-fiches-section h2 { 
-      font-size: 1rem; 
-      font-weight: 600; 
-      margin-bottom: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .fiche-item {
-      background: #f8fafc;
-      border-radius: 16px;
-      padding: 0.85rem 1rem;
-      margin-bottom: 0.65rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      transition: all 0.2s;
-      border-left: 3px solid #ffc107;
-    }
-    .fiche-item:hover {
-      transform: translateX(4px);
-      background: #f0f2f5;
-    }
-    .fiche-nom { 
-      font-weight: 600; 
-      font-size: 0.9rem;
-      color: #1e2a3e;
-    }
-    .fiche-date { 
-      font-size: 0.7rem; 
-      color: #888;
-      margin-top: 4px;
-    }
-    .badge-pending {
-      background: #fff3cd;
-      color: #856404;
-      border-radius: 20px;
-      padding: 0.25rem 0.7rem;
-      font-size: 0.7rem;
-      font-weight: 600;
-    }
-    .badge-synced {
-      background: #d4edda;
-      color: #155724;
-    }
-    .fiche-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .fiche-actions a {
+    
+    .tips strong {
       color: #006633;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.8rem;
-      display: flex;
-      align-items: center;
-      gap: 4px;
     }
-    .fiche-actions a:hover {
-      text-decoration: underline;
-    }
-    .delete-btn {
-      color: #dc3545 !important;
-      cursor: pointer;
-      background: none;
-      border: none;
-    }
-    .loading-spinner {
+    
+    .spinner {
       display: inline-block;
       width: 20px;
       height: 20px;
-      border: 2px solid #eef2f6;
-      border-top-color: #006633;
+      border: 3px solid rgba(0,102,51,0.3);
       border-radius: 50%;
+      border-top-color: #006633;
       animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    .sync-status {
-      background: #e8f5e9;
-      color: #2e7d32;
-      padding: 0.5rem 1rem;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      margin-top: 1rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .sync-status i { font-size: 0.9rem; }
-    #msg-vide { 
-      color: #aaa; 
-      font-size: 0.85rem; 
-      text-align: center; 
-      padding: 1.5rem;
-      background: #f8fafc;
-      border-radius: 16px;
-    }
-    .retry-link {
-      color: #006633;
-      cursor: pointer;
-      text-decoration: underline;
+      margin-right: 8px;
+      vertical-align: middle;
     }
     
-    @media (max-width: 480px) {
-      .card { padding: 1.5rem; }
-      .icon { font-size: 3rem; }
-      h1 { font-size: 1.3rem; }
-      .btn { padding: 0.6rem 1.2rem; font-size: 0.85rem; }
-      .fiche-item { flex-direction: column; align-items: flex-start; gap: 10px; }
-      .fiche-actions { align-self: flex-end; }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="icon">📴</div>
-    <h1>Vous êtes hors ligne</h1>
-    <p>Aucune connexion internet détectée.<br>Vous pouvez consulter vos fiches sauvegardées localement ci-dessous.</p>
+  <div class="offline-container">
+    <div class="offline-icon">📡</div>
     
-    <div class="btn-group">
-      <a href="/fiches/" class="btn">
-        <i>📋</i> Toutes mes fiches
-      </a>
-      <a href="/fiches/nouvelle/" class="btn btn-outline">
-        <i>➕</i> Nouvelle fiche
-      </a>
+    <h1>Mode Hors-Ligne</h1>
+    <p>Vous êtes actuellement hors-ligne. Vous pouvez toujours créer et modifier vos fiches. Elles seront synchronisées automatiquement lorsque la connexion sera rétablie.</p>
+    
+    <div class="actions">
+      <button class="btn-primary" onclick="goHome()">
+        <span class="spinner"></span>Retour à l'accueil
+      </button>
+      <button class="btn-secondary" onclick="goBack()">Retour à la page précédente</button>
     </div>
-
-    <div id="sync-status" class="sync-status" style="display:none;">
-      <div class="loading-spinner"></div>
-      <span>Synchronisation en cours...</span>
-    </div>
-
-    <div id="local-fiches-section">
-      <h2>
-        <span>📁</span> Fiches disponibles hors-ligne
-        <span id="fiches-count" style="font-size:0.7rem; background:#eef2f6; padding:2px 8px; border-radius:20px;">0</span>
-      </h2>
-      <div id="local-list"><p id="msg-vide">Chargement...</p></div>
+    
+    <div class="tips">
+      <strong>💡 Conseils :</strong><br>
+      • Vos fiches créées en hors-ligne sont sauvegardées localement<br>
+      • Vous pouvez les consulter, modifier ou supprimer<br>
+      • La synchronisation se fera automatiquement une fois en-ligne<br>
+      • Ne fermez pas l'application avant synchronisation
     </div>
   </div>
-
+  
   <script>
-    const DB_NAME = 'ficheControleDB';
-    const DB_VERSION = 5; // Synchronisé avec app-offline-unified.js
-    const STORE = 'fiches_locales';
-
-    function ouvrirDB() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, DB_VERSION);
-        req.onupgradeneeded = (e) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains(STORE)) {
-            db.createObjectStore(STORE, { keyPath: 'local_id' });
-          }
-        };
-        req.onsuccess = (e) => resolve(e.target.result);
-        req.onerror = (e) => reject(e.target.error);
-      });
-    }
-
-    async function afficherFichesLocales() {
-      const container = document.getElementById('local-list');
-      const countSpan = document.getElementById('fiches-count');
-      
-      try {
-        const db = await ouvrirDB();
-        const tx = db.transaction(STORE, 'readonly');
-        const req = tx.objectStore(STORE).getAll();
-        
-        req.onsuccess = () => {
-          const fiches = req.result || [];
-          if (!fiches.length) {
-            container.innerHTML = '<p id="msg-vide">📭 Aucune fiche sauvegardée localement.</p>';
-            if (countSpan) countSpan.textContent = '0';
-            return;
-          }
-          
-          if (countSpan) countSpan.textContent = fiches.length;
-          container.innerHTML = '';
-          
-          fiches.forEach(f => {
-            const div = document.createElement('div');
-            div.className = 'fiche-item';
-            div.setAttribute('data-local-id', f.local_id);
-            div.innerHTML = `
-              <div>
-                <div class="fiche-nom">${escapeHtml(f.entreprise || '(Sans nom)')}</div>
-                <div class="fiche-date">
-                  📅 ${f.date_controle || 'Date non renseignée'} 
-                  ${f.lieu ? `📍 ${escapeHtml(f.lieu)}` : ''}
-                </div>
-              </div>
-            <div class="fiche-actions">
-                <span class="badge-pending ${f.synced ? 'badge-synced' : ''}">
-                  ${f.synced ? '✓ Synchronisé' : '⏳ En attente'}
-                </span>
-                <a href="/fiches/creer/?local_id=${encodeURIComponent(f.local_id)}">
-                  ✏️ Modifier
-                </a>
-                <button class="delete-btn" onclick="supprimerFicheLocale('${f.local_id}')" title="Supprimer">
-                  🗑️
-                </button>
-              </div>
-            `;
-            container.appendChild(div);
-          });
-        };
-        
-        req.onerror = () => {
-          container.innerHTML = '<p id="msg-vide">❌ Erreur de lecture de la base locale.</p>';
-        };
-      } catch (e) {
-        console.error('[Offline] Erreur:', e);
-        container.innerHTML = '<p id="msg-vide">⚠️ IndexedDB non disponible sur ce navigateur.</p>';
+    // Fonction pour vérifier si l'utilisateur est en ligne
+    function checkOnlineStatus() {
+      if (navigator.onLine) {
+        // L'utilisateur est en ligne, rediriger vers fiches
+        console.log('[Offline] Utilisateur connecté, redirection vers /fiches/');
+        window.location.href = '/fiches/';
+      } else {
+        console.log('[Offline] Mode hors-ligne confirmé');
       }
     }
-
-    function escapeHtml(text) {
-      if (!text) return '';
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    async function supprimerFicheLocale(localId) {
-      if (!confirm('Supprimer définitivement cette fiche ?')) return;
-      
-      try {
-        const db = await ouvrirDB();
-        const tx = db.transaction(STORE, 'readwrite');
-        const store = tx.objectStore(STORE);
-        
-        // Convertir en string pour correspondre au keyPath
-        const id = String(localId);
-        store.delete(id);
-        
-        tx.oncomplete = () => {
-          console.log('[Offline] Fiche supprimée:', id);
-          afficherFichesLocales(); // Rafraîchir la liste
-          showTemporaryMessage('Fiche supprimée', 'success');
-        };
-        
-        tx.onerror = (e) => {
-          console.error('[Offline] Erreur suppression:', e);
-          showTemporaryMessage('Erreur lors de la suppression', 'error');
-        };
-      } catch (e) {
-        console.error('[Offline] Erreur:', e);
-        showTemporaryMessage('Erreur technique', 'error');
-      }
-    }
-
-    function showTemporaryMessage(message, type) {
-      const existingMsg = document.getElementById('temp-message');
-      if (existingMsg) existingMsg.remove();
-      
-      const msg = document.createElement('div');
-      msg.id = 'temp-message';
-      msg.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: ${type === 'success' ? '#006633' : '#dc3545'};
-        color: white;
-        padding: 8px 16px;
-        border-radius: 40px;
-        font-size: 0.85rem;
-        z-index: 1000;
-        animation: fadeOut 2s forwards;
-      `;
-      msg.textContent = message;
-      document.body.appendChild(msg);
-      
-      setTimeout(() => msg.remove(), 2000);
-    }
-
-    // Vérifier périodiquement si la connexion est revenue
-    let retryInterval = null;
     
-    function startRetryCheck() {
-      if (retryInterval) clearInterval(retryInterval);
-      
-      retryInterval = setInterval(() => {
-        if (navigator.onLine) {
-          console.log('[Offline] Connexion rétablie, redirection...');
-          clearInterval(retryInterval);
-          window.location.href = '/fiches/';
-        }
-      }, 5000);
-    }
+    // Vérifier au chargement
+    document.addEventListener('DOMContentLoaded', checkOnlineStatus);
     
-    // Démarrer la vérification
-    startRetryCheck();
-    
-    // Arrêter la vérification quand la page est fermée
-    window.addEventListener('beforeunload', () => {
-      if (retryInterval) clearInterval(retryInterval);
-    });
-
-    // Exposer globalement pour les boutons
-    window.supprimerFicheLocale = supprimerFicheLocale;
-    
-    // Chargement initial
-    afficherFichesLocales();
-
-    // Si on revient en ligne pendant que la page est ouverte
+    // Vérifier à chaque changement de statut réseau
     window.addEventListener('online', () => {
-      console.log('[Offline] Connexion détectée, redirection...');
-      window.location.href = '/fiches/';
+      console.log('[Offline] Connexion rétablie, redirection...');
+      setTimeout(() => window.location.href = '/fiches/', 500);
     });
+    
+    function goHome() {
+      window.location.href = '/fiches/';
+    }
+    
+    function goBack() {
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.href = '/fiches/';
+      }
+    }
   </script>
 </body>
 </html>

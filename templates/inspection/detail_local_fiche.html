@@ -1,7 +1,7 @@
 {% extends 'inspection/base.html' %}
 {% load static %}
 
-{% block title %}Fiche Hors-ligne — Inspection du Travail{% endblock %}
+{% block title %}Fiche Hors-ligne — IRTSS Louga{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -57,6 +57,11 @@
     flex: 1;
     color: #1e2a3e;
   }
+  .badge-statut {
+    border-radius: 40px;
+    padding: 0.4rem 1.2rem;
+    font-weight: 600;
+  }
   .table-mini {
     width: 100%;
     background: #fafcff;
@@ -74,7 +79,13 @@
     color: #2c3e50;
     width: 35%;
   }
-
+  .signature-block {
+    background: #f8fafc;
+    border-radius: 20px;
+    padding: 1rem;
+    text-align: center;
+  }
+  
   .offline-badge {
     background: #dc3545;
     color: white;
@@ -174,14 +185,15 @@
     </div>
   </div>
 
-  <!-- Contenu principal -->
+  <!-- Chargement -->
   <div id="loading" class="loading">
     <div class="spinner"></div>
     <p>Chargement de la fiche...</p>
   </div>
 
+  <!-- Contenu principal -->
   <div id="content" style="display: none;">
-    <div class="fiche-unique-card">
+    <div id="pdf-content" class="fiche-unique-card">
       <!-- En-tête officiel -->
       <div class="entete-officiel text-center">
         <div class="d-flex justify-content-center gap-2 mb-2">
@@ -198,6 +210,7 @@
         <h5 class="fw-bold mt-2 mb-0 text-senegal">
           <i class="bi bi-clipboard2-check me-2"></i>FICHE DE CONTRÔLE
         </h5>
+        <div class="small mt-1"><strong><span id="lieu-detail-header">—</span>, le <span id="date-detail-header">—</span></strong></div>
       </div>
 
       <!-- SECTION 1 : Identification -->
@@ -230,13 +243,13 @@
         </div>
       </div>
 
-      <!-- SECTION 2 : Effectifs -->
+      <!-- SECTION 2 : Dispositions administratives et effectifs -->
       <div class="section-interne">
         <div class="section-titre"><i class="bi bi-file-text"></i> 2. Dispositions administratives & effectifs</div>
         <div class="row g-3">
           <div class="col-md-6">
             <table class="table-mini">
-              <tr><th>Déclaration d'ouverture</th><td id="field-doe">—</td></tr>
+              <tr><th>Déclaration d'ouverture (DOE)</th><td id="field-doe">—</td></tr>
               <tr><th>Registre de paie</th><td id="field-registre_paie">—</td></tr>
             </table>
           </div>
@@ -247,31 +260,148 @@
                 <tr><td class="text-start">Cadres</td><td id="field-cadres_hommes">0</td><td id="field-cadres_femmes">0</td><td><strong id="field-cadres_total">0</strong></td></tr>
                 <tr><td class="text-start">Ouvriers</td><td id="field-ouvriers_hommes">0</td><td id="field-ouvriers_femmes">0</td><td><strong id="field-ouvriers_total">0</strong></td></tr>
               </tbody>
+              <tfoot><tr><th class="text-start">Total général</th><th colspan="2"></th><th id="field-effectif_total">0</th></tr></tfoot>
             </table>
           </div>
         </div>
       </div>
 
-      <!-- SECTION 3 : Observations -->
+      <!-- SECTION 3 : Contrats de travail -->
       <div class="section-interne">
-        <div class="section-titre"><i class="bi bi-chat-left-text"></i> 3. Observations</div>
+        <div class="section-titre"><i class="bi bi-file-earmark-text"></i> 3. Contrats de travail</div>
         <div class="row g-3">
           <div class="col-md-6">
-            <h6 class="fw-bold">Observations générales</h6>
-            <div class="p-2 bg-light rounded border" id="field-observations_generales" style="min-height: 80px;">—</div>
+            <table class="table-mini">
+              <tr><th>CDI</th><td id="field-cdi">0</td></tr>
+              <tr><th>CDD</th><td id="field-cdd">0</td></tr>
+              <tr><th>CS</th><td id="field-cs">0</td></tr>
+            </table>
           </div>
           <div class="col-md-6">
-            <h6 class="fw-bold">Observations diverses</h6>
-            <div class="p-2 bg-light rounded border" id="field-observations_divers" style="min-height: 80px;">—</div>
+            <table class="table-mini">
+              <tr><th>C. d'apprentissage</th><td id="field-c_app">0</td></tr>
+              <tr><th>Autres contrats</th><td id="field-autres_contrats">0</td></tr>
+              <tr class="table-active"><th>Total contrats</th><td><strong id="field-contrats_total">0</strong></td></tr>
+            </table>
           </div>
         </div>
+      </div>
+
+      <!-- SECTION 4 : Rémunération -->
+      <div class="section-interne">
+        <div class="section-titre"><i class="bi bi-cash-stack"></i> 4. Rémunération et conformité</div>
+        <div class="mb-3"><strong>Mode de rémunération</strong> : 
+          <span class="badge bg-light text-dark me-2">Au temps : Empl.<span id="field-remuneration_au_temps_1">—</span> / Trav.<span id="field-remuneration_au_temps_2">—</span></span>
+          <span class="badge bg-light text-dark me-2">À la pièce : Empl.<span id="field-remuneration_a_la_piece_1">—</span> / Trav.<span id="field-remuneration_a_la_piece_2">—</span></span>
+          <span class="badge bg-light text-dark">Les deux : Empl.<span id="field-remuneration_les_deux_1">—</span> / Trav.<span id="field-remuneration_les_deux_2">—</span></span>
+        </div>
+        <table class="table-mini">
+          <tr><th>Salaires de base conformes ?</th><td>Employeur <span id="field-salaires_conformes_1">—</span> / Travailleurs <span id="field-salaires_conformes_2">—</span></td></tr>
+          <tr><th>Bulletins de paie réglementaires ?</th><td>Empl. <span id="field-bulletins_paie_1">—</span> / Trav. <span id="field-bulletins_paie_2">—</span></td></tr>
+          <tr><th>Heures supplémentaires majorées ?</th><td>Empl. <span id="field-heures_sup_1">—</span> / Trav. <span id="field-heures_sup_2">—</span></td></tr>
+          <tr><th>Prime d'ancienneté ?</th><td>Empl. <span id="field-prime_anciennete_1">—</span> / Trav. <span id="field-prime_anciennete_2">—</span></td></tr>
+          <tr><th>Jours fériés travaillés majorés ?</th><td>Empl. <span id="field-jours_feries_1">—</span> / Trav. <span id="field-jours_feries_2">—</span></td></tr>
+          <tr><th>Indemnités de transport versées ?</th><td>Empl. <span id="field-indemnites_transport_1">—</span> / Trav. <span id="field-indemnites_transport_2">—</span></td></tr>
+        </table>
+      </div>
+
+      <!-- SECTION 5 : Temps de travail -->
+      <div class="section-interne">
+        <div class="section-titre"><i class="bi bi-clock-history"></i> 5. Temps de travail</div>
+        <table class="table-mini">
+          <tr><th>Horaires affichés ?</th><td>Empl. <span id="field-horaires_affiches_1">—</span> / Trav. <span id="field-horaires_affiches_2">—</span></td></tr>
+          <tr><th>Aménagement 8h/j – 5j</th><td>Empl. <span id="field-amenagement_8h_5j_1">—</span> / Trav. <span id="field-amenagement_8h_5j_2">—</span></td></tr>
+          <tr><th>Aménagement 6h40/j – 6j</th><td>Empl. <span id="field-amenagement_6h40_6j_1">—</span> / Trav. <span id="field-amenagement_6h40_6j_2">—</span></td></tr>
+          <tr><th>Respect pause quotidienne ?</th><td>Empl. <span id="field-pause_quotidienne_1">—</span> / Trav. <span id="field-pause_quotidienne_2">—</span></td></tr>
+          <tr><th>Respect repos hebdomadaire ?</th><td>Empl. <span id="field-repos_hebdomadaire_1">—</span> / Trav. <span id="field-repos_hebdomadaire_2">—</span></td></tr>
+        </table>
+      </div>
+
+      <!-- SECTION 6 : Sécurité sociale -->
+      <div class="section-interne">
+        <div class="section-titre"><i class="bi bi-shield-heart"></i> 6. Sécurité sociale</div>
+        <table class="table-mini">
+          <tr><th>Déclaration CSS</th><td>Empl. <span id="field-declaration_css_1">—</span> / Trav. <span id="field-declaration_css_2">—</span></td></tr>
+          <tr><th>Adhésion IPS – CSS</th><td>Empl. <span id="field-adhesion_css_1">—</span> / Trav. <span id="field-adhesion_css_2">—</span></td></tr>
+          <tr><th>Adhésion IPS – IPRES</th><td>Empl. <span id="field-adhesion_ipres_1">—</span> / Trav. <span id="field-adhesion_ipres_2">—</span></td></tr>
+          <tr><th>Adhésion IPS – IPM</th><td>Empl. <span id="field-adhesion_ipm_1">—</span> / Trav. <span id="field-adhesion_ipm_2">—</span></td></tr>
+          <tr><th>Cotisations CSS à jour ?</th><td>Empl. <span id="field-cotisations_css_1">—</span> / Trav. <span id="field-cotisations_css_2">—</span></td></tr>
+          <tr><th>Cotis. IPRES à jour ?</th><td>Empl. <span id="field-cotisations_ipres_1">—</span> / Trav. <span id="field-cotisations_ipres_2">—</span></td></tr>
+          <tr><th>Cotis. IPM à jour ?</th><td>Empl. <span id="field-cotisations_ipm_1">—</span> / Trav. <span id="field-cotisations_ipm_2">—</span></td></tr>
+        </table>
+      </div>
+
+      <!-- SECTION 7 : Divers -->
+      <div class="section-interne">
+        <div class="section-titre"><i class="bi bi-grid-3x3-gap-fill"></i> 7. Divers</div>
+        <table class="table-mini">
+          <tr><th>Délégués du personnel (DP)</th><td>Empl. <span id="field-delegues_personnel_1">—</span> / Trav. <span id="field-delegues_personnel_2">—</span></td></tr>
+          <tr><th>Règlement intérieur</th><td>Empl. <span id="field-reglement_interieur_1">—</span> / Trav. <span id="field-reglement_interieur_2">—</span></td></tr>
+          <tr><th>Comité HST</th><td>Empl. <span id="field-comite_hst_1">—</span> / Trav. <span id="field-comite_hst_2">—</span></td></tr>
+          <tr><th>Visite médicale annuelle</th><td>Empl. <span id="field-visite_medicale_1">—</span> / Trav. <span id="field-visite_medicale_2">—</span></td></tr>
+          <tr><th>Extincteurs à jour</th><td>Empl. <span id="field-extincteurs_1">—</span> / Trav. <span id="field-extincteurs_2">—</span></td></tr>
+          <tr><th>EPI disponibles</th><td>Empl. <span id="field-epi_disponible_1">—</span> / Trav. <span id="field-epi_disponible_2">—</span></td></tr>
+          <tr><th>Port effectif des EPI</th><td>Empl. <span id="field-epi_effectif_1">—</span> / Trav. <span id="field-epi_effectif_2">—</span></td></tr>
+          <tr><th>Toilettes / WC suffisants</th><td>Empl. <span id="field-toilettes_1">—</span> / Trav. <span id="field-toilettes_2">—</span></td></tr>
+          <tr><th>Congés payés avec allocations</th><td>Empl. <span id="field-conges_1">—</span> / Trav. <span id="field-conges_2">—</span></td></tr>
+          <tr><th>DASMO / Bilan social</th><td>Empl. <span id="field-dasmo_bs_1">—</span> / Trav. <span id="field-dasmo_bs_2">—</span></td></tr>
+        </table>
+        <div class="mt-3 p-2 bg-light rounded-3">
+          <strong><i class="bi bi-chat-dots me-1"></i>Observations divers :</strong> <span id="field-observations_divers">—</span>
+        </div>
+      </div>
+
+      <!-- SECTION 8 : Conclusions -->
+      <div class="section-interne">
+        <div class="section-titre"><i class="bi bi-flag"></i> 8. Conclusions, suites et signatures</div>
+        <div class="mb-4 p-3 bg-light rounded-3">
+          <strong><i class="bi bi-chat-quote me-1"></i>Observations générales :</strong><br>
+          <span id="field-observations_generales">—</span>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <strong><i class="bi bi-list-check me-1"></i>Suite réservée au contrôle</strong>
+            <ul class="list-unstyled mt-2" id="suite-actions-list">
+              <li><span id="field-suite_observations_orales">—</span></li>
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <strong><i class="bi bi-hourglass-split me-1"></i>Délai de remédiation</strong>
+            <ul class="list-unstyled mt-2" id="delai-list">
+              <li><span id="field-delai_reception">—</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="signature-block">
+              <i class="bi bi-pen fs-4 text-senegal"></i>
+              <div class="small text-muted mb-1">L'équipe de contrôle</div>
+              <strong id="field-signature_equipe">—</strong>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="signature-block">
+              <i class="bi bi-pen fs-4 text-senegal"></i>
+              <div class="small text-muted mb-1">Le gérant / Directeur</div>
+              <strong id="field-signature_gerant">—</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Métadonnées -->
+      <div class="text-center text-muted small py-3 border-top">
+        <i class="bi bi-clock me-1"></i> Fiche locale hors-ligne | <span id="field-saved_at">—</span>
       </div>
     </div>
   </div>
 </div>
 
 <!-- Modal de suppression -->
-<div id="deleteModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+<div id="deleteModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
   <div style="background: white; border-radius: 20px; padding: 2rem; max-width: 400px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
     <i class="bi bi-exclamation-circle" style="font-size: 3rem; color: #dc3545;"></i>
     <h5 class="mt-3 fw-bold">Confirmer la suppression</h5>
@@ -289,115 +419,219 @@
 </div>
 
 <script>
-const local_id = '{{ local_id }}';
-let ficheData = null;
+(function() {
+  const local_id = '{{ local_id }}';
+  let ficheData = null;
 
-async function loadFiche() {
-  try {
-    if (!window.FicheApp) {
-      setTimeout(loadFiche, 500);
-      return;
+  function formatValue(value) {
+    if (value === undefined || value === null || value === '') return '—';
+    if (value === true || value === 'on' || value === 'true') return '✓ Oui';
+    if (value === false || value === 'off' || value === 'false') return '✗ Non';
+    return value;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('fr-FR');
+    } catch {
+      return dateStr;
     }
+  }
 
-    let fiche;
-    if (window.FicheApp.getFicheByLocalId) {
-      fiche = await window.FicheApp.getFicheByLocalId(local_id);
-    } else if (window.FicheApp.getFiche) {
-      fiche = await window.FicheApp.getFiche(local_id);
-    }
-
-    if (!fiche) {
-      document.getElementById('loading').innerHTML = '<p class="text-danger">Fiche non trouvée</p>';
-      return;
-    }
-
-    ficheData = fiche.data || fiche;
-    if (ficheData.data) ficheData = ficheData.data;
-
-    // Remplir les champs
-    document.getElementById('entreprise-name').textContent = ficheData.entreprise || 'Sans nom';
-    document.getElementById('lieu-detail').textContent = ficheData.lieu_controle || '—';
-    document.getElementById('date-detail').textContent = ficheData.date_controle ? new Date(ficheData.date_controle).toLocaleDateString('fr-FR') : '—';
-    document.getElementById('modal-entreprise').textContent = ficheData.entreprise || 'Sans nom';
-
-    // Remplir tous les champs
-    const fieldMap = {
-      'entreprise': 'field-entreprise',
-      'adresse': 'field-adresse',
-      'telephone': 'field-telephone',
-      'email_entreprise': 'field-email_entreprise',
-      'date_ouverture': 'field-date_ouverture',
-      'forme_juridique': 'field-forme_juridique',
-      'activite_principale': 'field-activite_principale',
-      'chef_nom': 'field-chef_nom',
-      'chef_cellulaire': 'field-chef_cellulaire',
-      'chef_email': 'field-chef_email',
-      'doe': 'field-doe',
-      'registre_paie': 'field-registre_paie',
-      'cadres_hommes': 'field-cadres_hommes',
-      'cadres_femmes': 'field-cadres_femmes',
-      'ouvriers_hommes': 'field-ouvriers_hommes',
-      'ouvriers_femmes': 'field-ouvriers_femmes',
-      'observations_generales': 'field-observations_generales',
-      'observations_divers': 'field-observations_divers',
-    };
-
-    for (const [key, elId] of Object.entries(fieldMap)) {
-      const el = document.getElementById(elId);
-      if (el) {
-        el.textContent = ficheData[key] || '—';
+  function formatSuiteActions(fiche) {
+    const actions = [
+      { key: 'suite_observations_orales', label: 'Observations orales' },
+      { key: 'suite_observations_ecrites', label: 'Observations écrites' },
+      { key: 'suite_mise_en_demeure', label: 'Mise en demeure' },
+      { key: 'suite_pv_infraction', label: 'Procès-verbal d\'infraction' },
+      { key: 'suite_refere', label: 'Référé' }
+    ];
+    const active = actions.filter(a => fiche[a.key] === true || fiche[a.key] === 'on' || fiche[a.key] === 'true');
+    const container = document.getElementById('suite-actions-list');
+    if (container) {
+      if (active.length === 0) {
+        container.innerHTML = '<li><span class="text-muted">—</span></li>';
+      } else {
+        container.innerHTML = active.map(a => `<li><i class="bi bi-check-circle-fill text-senegal me-2"></i>${a.label}</li>`).join('');
       }
     }
-
-    // Totaux
-    const cadres_total = (parseInt(ficheData.cadres_hommes) || 0) + (parseInt(ficheData.cadres_femmes) || 0);
-    const ouvriers_total = (parseInt(ficheData.ouvriers_hommes) || 0) + (parseInt(ficheData.ouvriers_femmes) || 0);
-    document.getElementById('field-cadres_total').textContent = cadres_total;
-    document.getElementById('field-ouvriers_total').textContent = ouvriers_total;
-
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('content').style.display = 'block';
-  } catch (error) {
-    console.error('Erreur chargement:', error);
-    document.getElementById('loading').innerHTML = '<p class="text-danger">Erreur: ' + error.message + '</p>';
   }
-}
 
-// Boutons
-document.getElementById('btn-edit').addEventListener('click', () => {
-  console.log('Edit:', local_id);
-  window.location.href = `/inspection/fiche/local/${local_id}/edit/`;
-});
-
-document.getElementById('btn-back').addEventListener('click', () => {
-  window.location.href = '/fiches/';
-});
-
-document.getElementById('btn-delete').addEventListener('click', () => {
-  document.getElementById('deleteModal').style.display = 'flex';
-});
-
-document.getElementById('btn-cancel-delete').addEventListener('click', () => {
-  document.getElementById('deleteModal').style.display = 'none';
-});
-
-document.getElementById('btn-confirm-delete').addEventListener('click', async () => {
-  try {
-    if (window.FicheApp && window.FicheApp.deleteFiche) {
-      await window.FicheApp.deleteFiche(local_id);
+  function formatDelais(fiche) {
+    const delais = [
+      { key: 'delai_reception', label: 'Dès réception' },
+      { key: 'delai_un_mois', label: 'Dans un (01) mois' },
+      { key: 'delai_autres', label: 'Autre : ' + (fiche.delai_autres_precision || '') }
+    ];
+    const active = delais.filter(d => fiche[d.key] === true || fiche[d.key] === 'on' || fiche[d.key] === 'true');
+    const container = document.getElementById('delai-list');
+    if (container) {
+      if (active.length === 0) {
+        container.innerHTML = '<li><span class="text-muted">—</span></li>';
+      } else {
+        container.innerHTML = active.map(d => `<li><i class="bi bi-check-square me-2"></i>${d.label}</li>`).join('');
+      }
     }
-    alert('Fiche supprimée avec succès');
-    window.location.href = '/inspection/liste_fiches/';
-  } catch (error) {
-    alert('Erreur: ' + error.message);
   }
-});
 
-// Démarrer
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', loadFiche);
-} else {
-  loadFiche();
-}
+  async function loadFiche() {
+    try {
+      if (!local_id || local_id === 'None' || local_id === '') {
+        document.getElementById('loading').innerHTML = '<p class="text-danger">Erreur: ID de fiche invalide</p>';
+        return;
+      }
+
+      if (!window.FicheApp) {
+        setTimeout(loadFiche, 500);
+        return;
+      }
+
+      let fiche;
+      if (window.FicheApp.getFicheByLocalId) {
+        fiche = await window.FicheApp.getFicheByLocalId(local_id);
+      } else if (window.FicheApp.getFiche) {
+        fiche = await window.FicheApp.getFiche(local_id);
+      }
+
+      if (!fiche) {
+        document.getElementById('loading').innerHTML = '<p class="text-danger">Fiche non trouvée</p>';
+        return;
+      }
+
+      ficheData = fiche;
+      if (ficheData.data) ficheData = ficheData.data;
+
+      // Mise à jour des titres
+      document.getElementById('entreprise-name').textContent = ficheData.entreprise || 'Sans nom';
+      document.getElementById('lieu-detail').textContent = ficheData.lieu || '—';
+      document.getElementById('date-detail').textContent = formatDate(ficheData.date_controle);
+      document.getElementById('lieu-detail-header').textContent = ficheData.lieu || '—';
+      document.getElementById('date-detail-header').textContent = formatDate(ficheData.date_controle);
+      document.getElementById('modal-entreprise').textContent = ficheData.entreprise || 'Sans nom';
+
+      // Mapping des champs
+      const fieldMap = {
+        'entreprise': 'field-entreprise', 'adresse': 'field-adresse', 'telephone': 'field-telephone',
+        'email_entreprise': 'field-email_entreprise', 'date_ouverture': 'field-date_ouverture',
+        'forme_juridique': 'field-forme_juridique', 'activite_principale': 'field-activite_principale',
+        'chef_nom': 'field-chef_nom', 'chef_cellulaire': 'field-chef_cellulaire', 'chef_email': 'field-chef_email',
+        'representant_nom': 'field-representant_nom', 'representant_qualite': 'field-representant_qualite',
+        'representant_cellulaire': 'field-representant_cellulaire', 'doe': 'field-doe', 'registre_paie': 'field-registre_paie',
+        'cadres_hommes': 'field-cadres_hommes', 'cadres_femmes': 'field-cadres_femmes',
+        'ouvriers_hommes': 'field-ouvriers_hommes', 'ouvriers_femmes': 'field-ouvriers_femmes',
+        'cdi': 'field-cdi', 'cdd': 'field-cdd', 'cs': 'field-cs', 'c_app': 'field-c_app',
+        'autres_contrats': 'field-autres_contrats', 'observations_generales': 'field-observations_generales',
+        'observations_divers': 'field-observations_divers', 'signature_equipe': 'field-signature_equipe',
+        'signature_gerant': 'field-signature_gerant', 'saved_at': 'field-saved_at',
+        'remuneration_au_temps_1': 'field-remuneration_au_temps_1', 'remuneration_au_temps_2': 'field-remuneration_au_temps_2',
+        'remuneration_a_la_piece_1': 'field-remuneration_a_la_piece_1', 'remuneration_a_la_piece_2': 'field-remuneration_a_la_piece_2',
+        'remuneration_les_deux_1': 'field-remuneration_les_deux_1', 'remuneration_les_deux_2': 'field-remuneration_les_deux_2',
+        'salaires_conformes_1': 'field-salaires_conformes_1', 'salaires_conformes_2': 'field-salaires_conformes_2',
+        'bulletins_paie_1': 'field-bulletins_paie_1', 'bulletins_paie_2': 'field-bulletins_paie_2',
+        'heures_sup_1': 'field-heures_sup_1', 'heures_sup_2': 'field-heures_sup_2',
+        'prime_anciennete_1': 'field-prime_anciennete_1', 'prime_anciennete_2': 'field-prime_anciennete_2',
+        'jours_feries_1': 'field-jours_feries_1', 'jours_feries_2': 'field-jours_feries_2',
+        'indemnites_transport_1': 'field-indemnites_transport_1', 'indemnites_transport_2': 'field-indemnites_transport_2',
+        'horaires_affiches_1': 'field-horaires_affiches_1', 'horaires_affiches_2': 'field-horaires_affiches_2',
+        'amenagement_8h_5j_1': 'field-amenagement_8h_5j_1', 'amenagement_8h_5j_2': 'field-amenagement_8h_5j_2',
+        'amenagement_6h40_6j_1': 'field-amenagement_6h40_6j_1', 'amenagement_6h40_6j_2': 'field-amenagement_6h40_6j_2',
+        'pause_quotidienne_1': 'field-pause_quotidienne_1', 'pause_quotidienne_2': 'field-pause_quotidienne_2',
+        'repos_hebdomadaire_1': 'field-repos_hebdomadaire_1', 'repos_hebdomadaire_2': 'field-repos_hebdomadaire_2',
+        'declaration_css_1': 'field-declaration_css_1', 'declaration_css_2': 'field-declaration_css_2',
+        'adhesion_css_1': 'field-adhesion_css_1', 'adhesion_css_2': 'field-adhesion_css_2',
+        'adhesion_ipres_1': 'field-adhesion_ipres_1', 'adhesion_ipres_2': 'field-adhesion_ipres_2',
+        'adhesion_ipm_1': 'field-adhesion_ipm_1', 'adhesion_ipm_2': 'field-adhesion_ipm_2',
+        'cotisations_css_1': 'field-cotisations_css_1', 'cotisations_css_2': 'field-cotisations_css_2',
+        'cotisations_ipres_1': 'field-cotisations_ipres_1', 'cotisations_ipres_2': 'field-cotisations_ipres_2',
+        'cotisations_ipm_1': 'field-cotisations_ipm_1', 'cotisations_ipm_2': 'field-cotisations_ipm_2',
+        'delegues_personnel_1': 'field-delegues_personnel_1', 'delegues_personnel_2': 'field-delegues_personnel_2',
+        'reglement_interieur_1': 'field-reglement_interieur_1', 'reglement_interieur_2': 'field-reglement_interieur_2',
+        'comite_hst_1': 'field-comite_hst_1', 'comite_hst_2': 'field-comite_hst_2',
+        'visite_medicale_1': 'field-visite_medicale_1', 'visite_medicale_2': 'field-visite_medicale_2',
+        'extincteurs_1': 'field-extincteurs_1', 'extincteurs_2': 'field-extincteurs_2',
+        'epi_disponible_1': 'field-epi_disponible_1', 'epi_disponible_2': 'field-epi_disponible_2',
+        'epi_effectif_1': 'field-epi_effectif_1', 'epi_effectif_2': 'field-epi_effectif_2',
+        'toilettes_1': 'field-toilettes_1', 'toilettes_2': 'field-toilettes_2',
+        'conges_1': 'field-conges_1', 'conges_2': 'field-conges_2',
+        'dasmo_bs_1': 'field-dasmo_bs_1', 'dasmo_bs_2': 'field-dasmo_bs_2'
+      };
+
+      for (const [key, elId] of Object.entries(fieldMap)) {
+        const el = document.getElementById(elId);
+        if (el) {
+          el.textContent = formatValue(ficheData[key]);
+        }
+      }
+
+      // Totaux
+      const cadres_total = (parseInt(ficheData.cadres_hommes) || 0) + (parseInt(ficheData.cadres_femmes) || 0);
+      const ouvriers_total = (parseInt(ficheData.ouvriers_hommes) || 0) + (parseInt(ficheData.ouvriers_femmes) || 0);
+      const effectif_total = cadres_total + ouvriers_total;
+      const contrats_total = (parseInt(ficheData.cdi) || 0) + (parseInt(ficheData.cdd) || 0) +
+        (parseInt(ficheData.cs) || 0) + (parseInt(ficheData.c_app) || 0) + (parseInt(ficheData.autres_contrats) || 0);
+
+      document.getElementById('field-cadres_total').textContent = cadres_total;
+      document.getElementById('field-ouvriers_total').textContent = ouvriers_total;
+      document.getElementById('field-effectif_total').textContent = effectif_total;
+      document.getElementById('field-contrats_total').textContent = contrats_total;
+
+      formatSuiteActions(ficheData);
+      formatDelais(ficheData);
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+    } catch (error) {
+      console.error('Erreur chargement:', error);
+      document.getElementById('loading').innerHTML = '<p class="text-danger">Erreur: ' + error.message + '</p>';
+    }
+  }
+
+  // Boutons
+  document.getElementById('btn-edit').addEventListener('click', () => {
+    if (local_id && local_id !== 'None') {
+      window.location.href = `/inspection/fiche/local/${local_id}/edit/`;
+    } else {
+      alert('Erreur: ID de fiche invalide');
+    }
+  });
+
+  document.getElementById('btn-back').addEventListener('click', () => {
+    window.location.href = '/fiches/';
+  });
+
+  const modal = document.getElementById('deleteModal');
+  document.getElementById('btn-delete').addEventListener('click', () => {
+    if (local_id && local_id !== 'None') {
+      modal.style.display = 'flex';
+    } else {
+      alert('Erreur: ID de fiche invalide');
+    }
+  });
+
+  document.getElementById('btn-cancel-delete').addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+
+  document.getElementById('btn-confirm-delete').addEventListener('click', async () => {
+    try {
+      if (window.FicheApp && window.FicheApp.deleteFiche) {
+        await window.FicheApp.deleteFiche(local_id);
+      }
+      alert('Fiche supprimée avec succès');
+      window.location.href = '/fiches/';
+    } catch (error) {
+      alert('Erreur: ' + error.message);
+    }
+  });
+
+  // Démarrer
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadFiche);
+  } else {
+    loadFiche();
+  }
+})();
 </script>
 {% endblock %}

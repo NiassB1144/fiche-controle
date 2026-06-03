@@ -1,10 +1,11 @@
 // ========================================================================
-// FICHE-CONTROLE v4 — app.js (complet avec offline/online + synchronisation)
+// FICHE-CONTROLE v5 — app.js (complet avec offline/online + synchronisation)
+// VERSION UNIFIÉE CORRIGÉE
 // ========================================================================
 
 const LOG_PREFIX = '[FicheApp]';
 const DB_NAME = 'ficheControleDB';
-const DB_VERSION = 5;
+const DB_VERSION = 5;  // Version incrémentée pour éviter les conflits
 const STORE = 'fiches_locales';
 
 // ========================================================================
@@ -33,7 +34,6 @@ function afficherNotification(message, type = 'info') {
   `;
   container.appendChild(toast);
   
-  // Initialiser Bootstrap toast si disponible
   if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
     const bsToast = new bootstrap.Toast(toast);
     bsToast.show();
@@ -67,92 +67,219 @@ function ouvrirDB() {
         store.createIndex('synced', 'synced', { unique: false });
         store.createIndex('server_pk', 'server_pk', { unique: false });
         store.createIndex('date_controle', 'date_controle', { unique: false });
+        store.createIndex('entreprise', 'entreprise', { unique: false });
+        logInfo('ObjectStore créé:', STORE);
+      }
+      
+      // Créer la queue de synchronisation si elle n'existe pas
+      if (!db.objectStoreNames.contains('sync_queue')) {
+        const queueStore = db.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
+        queueStore.createIndex('status', 'status', { unique: false });
+        queueStore.createIndex('action', 'action', { unique: false });
+        logInfo('Queue store créé: sync_queue');
       }
     };
-    req.onsuccess = (e) => resolve(e.target.result);
-    req.onerror = (e) => reject(e.target.error);
+    req.onsuccess = (e) => {
+      logInfo('✓ DB ouverte');
+      resolve(e.target.result);
+    };
+    req.onerror = (e) => {
+      logError('Erreur DB', e.target.error);
+      reject(e.target.error);
+    };
   });
 }
 
+// ========================================================================
+// CRUD - SAUVEGARDE
+// ========================================================================
 async function sauvegarderLocalement(donnees) {
-  // Utiliser offline-crud.js si disponible
-  if (typeof OfflineCRUD !== 'undefined') {
-    try {
-      const validation = OfflineCRUD.validateData(donnees);
-      if (!validation.valid) {
-        afficherNotification(validation.errors.join(', '), 'warning');
-        return null;
-      }
-      const local_id = await OfflineCRUD.createFiche(donnees);
-      logInfo('Fiche créée localement', { local_id });
-      afficherNotification('Fiche sauvegardée localement', 'success');
-      return local_id;
-    } catch (error) {
-      logError('Erreur OfflineCRUD.createFiche', error);
+  try {
+    if (!donnees.entreprise || !donnees.entreprise.trim()) {
+      afficherNotification('Le nom de l\'entreprise est requis', 'warning');
+      return null;
     }
-  }
+    if (!donnees.date_controle) {
+      afficherNotification('La date de contrôle est requise', 'warning');
+      return null;
+    }
 
-  // Fallback (ancien code)
-  const db = await ouvrirDB();
-  const tx = db.transaction(STORE, 'readwrite');
-  const store = tx.objectStore(STORE);
-  const fiche = { 
-    ...donnees, 
-    local_id: Date.now(), 
-    synced: false,
-    server_pk: null,
-    created_offline_at: new Date().toISOString(),
-    saved_at: new Date().toISOString()
-  };
-  store.put(fiche);
-  logInfo('Fiche sauvegardée localement', { local_id: fiche.local_id });
-  afficherNotification('Fiche sauvegardée localement', 'success');
-  return fiche.local_id;
+    const db = await ouvrirDB();
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    
+    // Utiliser l'ID existant ou en créer un nouveau
+    let local_id = donnees.local_id;
+    if (!local_id) {
+      local_id = Date.now();
+    } else {
+      local_id = parseInt(local_id);
+    }
+    
+    const fiche = { 
+      ...donnees, 
+      local_id: local_id, 
+      synced: false,
+      server_pk: donnees.server_pk || null,
+      saved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    logInfo('[sauvegarderLocalement] Sauvegarde en cours...', { local_id });
+    
+    return new Promise((resolve, reject) => {
+      const req = store.put(fiche);
+      
+      req.onsuccess = () => {
+        logInfo('[sauvegarderLocalement] ✓ Succès', { local_id });
+        afficherNotification('Fiche sauvegardée localement ✓', 'success');
+        resolve(local_id);
+      };
+      
+      req.onerror = () => {
+        logError('[sauvegarderLocalement] ✗ Erreur IndexedDB', req.error);
+        reject(req.error);
+      };
+    });
+  } catch (err) {
+    logError('[sauvegarderLocalement] Exception', err);
+    afficherNotification('❌ Erreur: ' + err.message, 'danger');
+    return null;
+  }
 }
 
+// ========================================================================
+// CRUD - LECTURE
+// ========================================================================
 async function getFicheByLocalId(local_id) {
-  const db = await ouvrirDB();
-  const tx = db.transaction(STORE, 'readonly');
-  return new Promise((resolve, reject) => {
-    const req = tx.objectStore(STORE).get(parseInt(local_id));
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  if (local_id === undefined || local_id === null) {
+    logError('getFicheByLocalId: local_id invalide', local_id);
+    return null;
+  }
+  try {
+    const db = await ouvrirDB();
+    const tx = db.transaction(STORE, 'readonly');
+    return new Promise((resolve, reject) => {
+      const id = parseInt(local_id);
+      if (isNaN(id)) {
+        logError('getFicheByLocalId: NaN après parseInt', local_id);
+        resolve(null);
+        return;
+      }
+      const req = tx.objectStore(STORE).get(id);
+      req.onsuccess = () => {
+        resolve(req.result || null);
+      };
+      req.onerror = () => {
+        logError('getFicheByLocalId: erreur indexeddb', req.error);
+        resolve(null);
+      };
+    });
+  } catch (err) {
+    logError('getFicheByLocalId: exception', err);
+    return null;
+  }
 }
 
 async function getAllFiches() {
-  const db = await ouvrirDB();
-  const tx = db.transaction(STORE, 'readonly');
-  return new Promise((resolve, reject) => {
-    const req = tx.objectStore(STORE).getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
+  try {
+    const db = await ouvrirDB();
+    const tx = db.transaction(STORE, 'readonly');
+    return new Promise((resolve, reject) => {
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => {
+        const fiches = req.result || [];
+        const validFiches = fiches.filter(f => f && f.local_id);
+        resolve(validFiches);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    logError('getAllFiches: exception', err);
+    return [];
+  }
 }
 
+// ========================================================================
+// CRUD - SUPPRESSION
+// ========================================================================
 async function deleteFiche(local_id) {
-  const db = await ouvrirDB();
-  const tx = db.transaction(STORE, 'readwrite');
-  return new Promise((resolve, reject) => {
-    const req = tx.objectStore(STORE).delete(parseInt(local_id));
-    req.onsuccess = () => resolve(true);
-    req.onerror = () => reject(req.error);
-  });
+  try {
+    const db = await ouvrirDB();
+    const tx = db.transaction(STORE, 'readwrite');
+    return new Promise((resolve, reject) => {
+      const id = parseInt(local_id);
+      const req = tx.objectStore(STORE).delete(id);
+      req.onsuccess = () => {
+        logInfo('✓ Fiche supprimée', { local_id: id });
+        afficherNotification('Fiche supprimée ✓', 'success');
+        resolve(true);
+      };
+      req.onerror = () => {
+        logError('Erreur suppression', req.error);
+        reject(req.error);
+      };
+    });
+  } catch (err) {
+    logError('deleteFiche: exception', err);
+    return false;
+  }
 }
 
-async function deleteLocalFiche(local_id) {
+async function deleteFicheLocal(local_id) {
   return deleteFiche(local_id);
 }
 
-async function getPendingSyncCount() {
-  const fiches = await getAllFiches();
-  return fiches.filter(f => !f.synced).length;
+// ========================================================================
+// CRUD - MODIFICATION
+// ========================================================================
+async function updateFiche(local_id, donnees) {
+  try {
+    const existing = await getFicheByLocalId(local_id);
+    if (!existing) {
+      throw new Error('Fiche non trouvée');
+    }
+    
+    const updatedFiche = {
+      ...existing,
+      ...donnees,
+      local_id: parseInt(local_id),
+      synced: false,
+      updated_at: new Date().toISOString()
+    };
+    
+    const db = await ouvrirDB();
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    
+    return new Promise((resolve, reject) => {
+      const req = store.put(updatedFiche);
+      req.onsuccess = () => {
+        logInfo('✓ Fiche modifiée', { local_id });
+        afficherNotification('Fiche mise à jour ✓', 'success');
+        resolve(updatedFiche);
+      };
+      req.onerror = () => {
+        logError('Erreur mise à jour', req.error);
+        reject(req.error);
+      };
+    });
+  } catch (err) {
+    logError('updateFiche: exception', err);
+    throw err;
+  }
 }
 
 // ========================================================================
 // SYNCHRONISATION
 // ========================================================================
 async function syncAll() {
+  if (!navigator.onLine) {
+    logWarn('Hors-ligne, synchronisation annulée');
+    afficherNotification('Hors-ligne - Synchronisation automatique au retour de la connexion', 'warning');
+    return { synced: 0, failed: 0 };
+  }
+  
   logInfo('🔄 Début synchronisation...');
   const fiches = await getAllFiches();
   const pending = fiches.filter(f => !f.synced);
@@ -168,10 +295,18 @@ async function syncAll() {
   for (const fiche of pending) {
     try {
       const csrfToken = getCsrfToken();
-      const url = fiche.server_pk ? `/api/fiche/${fiche.server_pk}/modifier/` : '/api/fiche/creer/';
+      let url, method;
+      
+      if (fiche.server_pk) {
+        url = `/api/fiche/${fiche.server_pk}/modifier/`;
+        method = 'POST';
+      } else {
+        url = '/api/fiche/creer/';
+        method = 'POST';
+      }
       
       const response = await fetch(url, {
-        method: 'POST',
+        method: method,
         headers: { 
           'Content-Type': 'application/json', 
           'X-CSRFToken': csrfToken 
@@ -181,17 +316,21 @@ async function syncAll() {
       
       if (response.ok) {
         const data = await response.json();
-        // Mettre à jour la fiche locale comme synchronisée
         const db = await ouvrirDB();
         const tx = db.transaction(STORE, 'readwrite');
         const store = tx.objectStore(STORE);
-        const updatedFiche = { ...fiche, synced: true, server_pk: data.id, synced_at: new Date().toISOString() };
+        const updatedFiche = { 
+          ...fiche, 
+          synced: true, 
+          server_pk: data.id || fiche.server_pk, 
+          synced_at: new Date().toISOString() 
+        };
         store.put(updatedFiche);
         synced++;
         logInfo(`✓ Fiche synchronisée: ${fiche.entreprise}`);
       } else {
         failed++;
-        logError(`✗ Échec synchronisation: ${fiche.entreprise}`, await response.text());
+        logError(`✗ Échec synchronisation: ${fiche.entreprise}`, response.status);
       }
     } catch (e) {
       failed++;
@@ -199,10 +338,15 @@ async function syncAll() {
     }
   }
   
-  afficherNotification(`${synced} fiche(s) synchronisée(s), ${failed} échec(s)`, synced > 0 ? 'success' : 'warning');
+  if (synced > 0) {
+    afficherNotification(`${synced} fiche(s) synchronisée(s)`, 'success');
+  }
+  if (failed > 0) {
+    afficherNotification(`${failed} échec(s) de synchronisation`, 'warning');
+  }
+  
   logInfo(`Synchronisation terminée: ${synced} OK, ${failed} KO`);
   
-  // Mettre à jour la bannière si disponible
   if (typeof window.updateSyncBanner === 'function') {
     await window.updateSyncBanner();
   }
@@ -210,6 +354,9 @@ async function syncAll() {
   return { synced, failed };
 }
 
+// ========================================================================
+// UTILITAIRES
+// ========================================================================
 function getCsrfToken() {
   const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
   if (cookie) return cookie.split('=')[1];
@@ -217,8 +364,31 @@ function getCsrfToken() {
   return meta ? meta.getAttribute('content') : '';
 }
 
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 // ========================================================================
-// COLLECTE DES DONNEES DU FORMULAIRE
+// STATUT RÉSEAU
+// ========================================================================
+function updateNetworkStatus() {
+  const statusBadge = document.getElementById('statut-connexion');
+  if (!statusBadge) return;
+  
+  if (navigator.onLine) {
+    statusBadge.innerHTML = '<i class="bi bi-wifi"></i> <span>En ligne</span>';
+    statusBadge.classList.remove('offline');
+  } else {
+    statusBadge.innerHTML = '<i class="bi bi-wifi-off"></i> <span>Hors-ligne</span>';
+    statusBadge.classList.add('offline');
+  }
+}
+
+// ========================================================================
+// COLLECTE DONNÉES FORMULAIRE
 // ========================================================================
 function collecterDonnees(statut) {
   const form = document.getElementById('form-fiche');
@@ -246,7 +416,7 @@ function collecterDonnees(statut) {
 }
 
 // ========================================================================
-// RENDU DES FICHES LOCALES DANS LA LISTE
+// RENDU FICHES LOCALES - LISTE
 // ========================================================================
 async function renderLocalFiches() {
   const container = document.getElementById('local-fiches-list');
@@ -255,7 +425,6 @@ async function renderLocalFiches() {
   const localCountHeader = document.getElementById('local-count-header');
   
   if (!container) {
-    logInfo('Container local-fiches-list non trouvé');
     return;
   }
   
@@ -272,7 +441,6 @@ async function renderLocalFiches() {
     if (localCountSpan) localCountSpan.textContent = pending.length;
     if (localCountHeader) localCountHeader.textContent = pending.length;
     
-    // Filtrer selon le statut actuel
     const urlParams = new URLSearchParams(window.location.search);
     const statutFiltre = urlParams.get('statut');
     
@@ -287,7 +455,7 @@ async function renderLocalFiches() {
     }
     
     container.innerHTML = filtered.map(fiche => `
-      <div class="fiche-card local-card p-3" data-local-id="${fiche.local_id}" onclick="window.location.href = '/inspection/fiche/local/${fiche.local_id}/detail/'" style="cursor: pointer;">
+      <div class="fiche-card local-card p-3 mb-3" data-local-id="${fiche.local_id}">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
           <div class="flex-grow-1">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -295,59 +463,56 @@ async function renderLocalFiches() {
                 <i class="bi bi-building me-1 text-secondary"></i>
                 ${escapeHtml(fiche.entreprise || 'Sans nom')}
               </h6>
-              <span class="local-badge">
+              <span class="badge bg-secondary">
                 <i class="bi bi-hdd"></i> Hors-ligne
               </span>
-              <span class="fiche-badge ${fiche.statut === 'soumis' ? 'bg-success text-white' : 'bg-warning text-dark'}">
+              <span class="badge ${fiche.statut === 'soumis' ? 'bg-success' : 'bg-warning'}">
                 ${fiche.statut === 'soumis' ? '<i class="bi bi-check-lg"></i> Soumis' : '<i class="bi bi-pencil"></i> Brouillon'}
               </span>
             </div>
-            <div class="small text-muted d-flex flex-wrap gap-x-3 gap-y-1">
-              <span><i class="bi bi-geo-alt me-1"></i> ${escapeHtml(fiche.lieu || 'Lieu non renseigné')}</span>
-              <span><i class="bi bi-calendar-event me-1"></i> ${fiche.date_controle || 'Date non renseignée'}</span>
+            <div class="small text-muted d-flex flex-wrap gap-2">
+              <span><i class="bi bi-geo-alt"></i> ${escapeHtml(fiche.lieu || '-')}</span>
+              <span><i class="bi bi-calendar"></i> ${fiche.date_controle || '-'}</span>
             </div>
-            <div class="sync-status mt-1">
-              <i class="bi bi-info-circle"></i> En attente de synchronisation
+            <div class="small text-warning mt-1">
+              <i class="bi bi-cloud-arrow-up"></i> En attente de synchronisation
             </div>
           </div>
           <div class="d-flex gap-2">
-            <a href="/inspection/fiche/local/${fiche.local_id}/edit/" class="btn btn-outline-primary btn-icon" title="Modifier" onclick="event.stopPropagation()">
-              <i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Modifier</span>
+            <a href="/inspection/fiche/local/${fiche.local_id}/edit/" class="btn btn-sm btn-outline-primary" title="Modifier">
+              <i class="bi bi-pencil"></i>
             </a>
-            <button onclick="if(window.FicheApp) window.FicheApp.deleteFicheLocal('${fiche.local_id}'); event.stopPropagation()" class="btn btn-outline-danger btn-icon" title="Supprimer">
-              <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Supprimer</span>
+            <button class="btn btn-sm btn-outline-danger btn-delete-local" data-local-id="${fiche.local_id}" title="Supprimer">
+              <i class="bi bi-trash3"></i>
             </button>
+            <a href="/inspection/fiche/local/${fiche.local_id}/detail/" class="btn btn-sm btn-outline-info" title="Voir détails">
+              <i class="bi bi-eye"></i>
+            </a>
           </div>
         </div>
       </div>
     `).join('');
+    
+    // Gestion des boutons de suppression
+    container.querySelectorAll('.btn-delete-local').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const lid = btn.getAttribute('data-local-id');
+        if (confirm('Supprimer définitivement cette fiche ?')) {
+          await deleteFiche(lid);
+          await renderLocalFiches();
+          afficherNotification('Fiche supprimée', 'success');
+        }
+      });
+    });
     
   } catch (error) {
     logError('Erreur renderLocalFiches', error);
   }
 }
 
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-async function deleteFicheLocal(local_id) {
-  if (!confirm('Supprimer définitivement cette fiche locale ?')) return;
-  await deleteFiche(local_id);
-  await renderLocalFiches();
-  afficherNotification('Fiche locale supprimée', 'success');
-  
-  // Mettre à jour le compteur global
-  if (typeof window.updateTotalCount === 'function') {
-    window.updateTotalCount();
-  }
-}
-
 // ========================================================================
-// SOUMISSION FORMULAIRE (VERSION AMELIOREE)
+// SOUMISSION FORMULAIRE
 // ========================================================================
 async function soumettreFormulaire(statut) {
   const entreprise = document.querySelector('[name="entreprise"]')?.value?.trim();
@@ -360,7 +525,6 @@ async function soumettreFormulaire(statut) {
   
   const donnees = collecterDonnees(statut);
   
-  // Récupérer les IDs d'édition
   let editingLocalId = null;
   let editingPk = null;
   
@@ -378,19 +542,45 @@ async function soumettreFormulaire(statut) {
   if (editingLocalId) donnees.local_id = editingLocalId;
   if (editingPk) donnees.server_pk = editingPk;
   
+  // ===== MODE HORS-LIGNE =====
   if (!navigator.onLine) {
-    // Hors ligne
-    const local_id = await sauvegarderLocalement(donnees);
-    afficherNotification('Fiche sauvegardée localement (hors-ligne)', 'success');
-    setTimeout(() => { window.location.href = '/fiches/'; }, 800);
-    return;
+    logInfo('🔴 Mode OFFLINE détecté');
+    try {
+      afficherNotification('⏳ Sauvegarde hors-ligne en cours...', 'info');
+      
+      let local_id;
+      if (editingLocalId) {
+        await updateFiche(editingLocalId, donnees);
+        local_id = editingLocalId;
+        logInfo('✅ Fiche mise à jour localement', { local_id });
+        afficherNotification('✅ Fiche mise à jour localement', 'success');
+      } else {
+        local_id = await sauvegarderLocalement(donnees);
+        logInfo('✅ Nouvelle fiche sauvegardée localement', { local_id });
+      }
+      
+      if (!local_id) {
+        throw new Error('Erreur lors de la sauvegarde');
+      }
+      
+      setTimeout(() => {
+        window.location.href = `/inspection/fiche/local/${local_id}/detail/`;
+      }, 1000);
+      return;
+    } catch (error) {
+      logError('💥 Erreur offline:', error);
+      afficherNotification('❌ Erreur: ' + error.message, 'danger');
+      return;
+    }
   }
   
-  // En ligne
+  // ===== MODE EN LIGNE =====
+  logInfo('🟢 Mode ONLINE détecté');
   const csrfToken = getCsrfToken();
   const url = editingPk ? `/api/fiche/${editingPk}/modifier/` : '/api/fiche/creer/';
   
   try {
+    afficherNotification('⏳ Enregistrement en cours...', 'info');
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
@@ -402,36 +592,69 @@ async function soumettreFormulaire(statut) {
       if (editingLocalId) {
         await deleteFiche(editingLocalId);
       }
-      afficherNotification('Fiche enregistrée avec succès !', 'success');
-      setTimeout(() => { window.location.href = `/fiches/${data.id}/`; }, 1500);
+      afficherNotification('✅ Fiche enregistrée avec succès !', 'success');
+      setTimeout(() => { 
+        window.location.href = `/inspection/fiche/${data.id}/detail/`; 
+      }, 1500);
     } else {
       const err = await resp.json();
-      afficherNotification(`Erreur: ${err.error || 'Problème serveur'}`, 'danger');
+      afficherNotification(`❌ Erreur serveur: ${err.error || 'Problème inconnu'}`, 'danger');
+      logError('Erreur serveur:', err);
+      
       // Fallback: sauvegarde locale
-      const local_id = await sauvegarderLocalement(donnees);
-      afficherNotification('Sauvegarde locale effectuée', 'warning');
+      try {
+        let local_id;
+        if (editingLocalId) {
+          await updateFiche(editingLocalId, donnees);
+          local_id = editingLocalId;
+        } else {
+          local_id = await sauvegarderLocalement(donnees);
+        }
+        if (local_id) {
+          afficherNotification('💾 Sauvegarde locale effectuée', 'warning');
+          setTimeout(() => { 
+            window.location.href = `/inspection/fiche/local/${local_id}/detail/`; 
+          }, 1500);
+        }
+      } catch (e) {
+        logError('Erreur fallback:', e);
+      }
     }
   } catch (e) {
-    logError('Erreur réseau', e);
-    const local_id = await sauvegarderLocalement(donnees);
-    afficherNotification('Connexion perdue. Fiche sauvegardée localement.', 'warning');
-    setTimeout(() => { window.location.href = '/fiches/'; }, 800);
+    logError('❌ Erreur réseau:', e);
+    afficherNotification('❌ Erreur réseau. Tentative de sauvegarde locale...', 'warning');
+    
+    try {
+      let local_id;
+      if (editingLocalId) {
+        await updateFiche(editingLocalId, donnees);
+        local_id = editingLocalId;
+      } else {
+        local_id = await sauvegarderLocalement(donnees);
+      }
+      if (local_id) {
+        afficherNotification('💾 Fiche sauvegardée localement', 'warning');
+        setTimeout(() => { 
+          window.location.href = `/inspection/fiche/local/${local_id}/detail/`; 
+        }, 800);
+      }
+    } catch (err) {
+      logError('Erreur sauvegarde locale:', err);
+      afficherNotification('❌ Impossible de sauvegarder', 'danger');
+    }
   }
 }
 
 // ========================================================================
-// STATUT RESEAU
+// NOMBRE DE FICHES EN ATTENTE
 // ========================================================================
-function updateNetworkStatus() {
-  const statusBadge = document.getElementById('statut-connexion');
-  if (!statusBadge) return;
-  
-  if (navigator.onLine) {
-    statusBadge.innerHTML = '<i class="bi bi-wifi"></i> <span>En ligne</span>';
-    statusBadge.classList.remove('offline');
-  } else {
-    statusBadge.innerHTML = '<i class="bi bi-wifi-off"></i> <span>Hors ligne</span>';
-    statusBadge.classList.add('offline');
+async function getPendingSyncCount() {
+  try {
+    const fiches = await getAllFiches();
+    return fiches.filter(f => !f.synced).length;
+  } catch (e) {
+    logError('Erreur getPendingSyncCount', e);
+    return 0;
   }
 }
 
@@ -439,14 +662,15 @@ function updateNetworkStatus() {
 // INITIALISATION
 // ========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  logInfo('🚀 Initialisation application v4...');
+  logInfo('🚀 Initialisation application v5...');
   
-  // Mettre à jour le statut réseau
   updateNetworkStatus();
-  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('online', () => {
+    updateNetworkStatus();
+    syncAll();
+  });
   window.addEventListener('offline', updateNetworkStatus);
   
-  // Charger une fiche locale si ?local_id=... est présent
   const params = new URLSearchParams(window.location.search);
   const local_id = params.get('local_id');
   if (local_id) {
@@ -462,13 +686,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
       }
+      window.editingLocalId = parseInt(local_id);
       afficherNotification('Fiche locale chargée', 'info');
-    } else {
-      afficherNotification('Fiche locale introuvable', 'danger');
     }
   }
   
-  // Rendre les fiches locales sur la page liste
   if (document.getElementById('local-fiches-list')) {
     await renderLocalFiches();
   }
@@ -477,67 +699,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ========================================================================
-// MÉTHODES OFFLINE SIMPLIFIÉES (pour templates offline)
-// ========================================================================
-async function getFiche(local_id) {
-  // Alias pour getFicheByLocalId
-  return await getFicheByLocalId(local_id);
-}
-
-async function saveFiche(data) {
-  // Créer une nouvelle fiche offline
-  return await sauvegarderLocalement(data);
-}
-
-async function updateFiche(local_id, data) {
-  // Mettre à jour une fiche existante
-  const db = await ouvrirDB();
-  const tx = db.transaction(STORE, 'readwrite');
-  const store = tx.objectStore(STORE);
-  
-  const fiche = await getFicheByLocalId(local_id);
-  if (!fiche) throw new Error('Fiche non trouvée');
-  
-  const updated = {
-    ...fiche,
-    ...data,
-    local_id: fiche.local_id,
-    saved_at: new Date().toISOString()
-  };
-  
-  return new Promise((resolve, reject) => {
-    const req = store.put(updated);
-    req.onsuccess = () => resolve(updated);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-// ========================================================================
-// EXPORT GLOBAL
+// EXPORTS GLOBAUX
 // ========================================================================
 window.FicheApp = {
   sauvegarderLocalement,
-  saveFiche,
-  getFiche,
+  saveFiche: sauvegarderLocalement,
+  getFiche: getFicheByLocalId,
   getFicheByLocalId,
   updateFiche,
   getAllFiches,
   deleteFiche,
-  deleteLocalFiche,
+  deleteFicheLocal,
   getPendingSyncCount,
   syncAll,
   soumettreFormulaire,
   collecterDonnees,
   renderLocalFiches,
-  deleteFicheLocal,
   afficherNotification,
   logInfo, logWarn, logError
 };
 
-// Exporter aussi les fonctions standalone pour compatibilité
-window.syncLocale = () => window.FicheApp.syncAll();
 window.sauvegarderLocalement = sauvegarderLocalement;
 window.getFicheByLocalId = getFicheByLocalId;
+window.syncAll = syncAll;
 window.deleteLocalFiche = deleteFiche;
 
-logInfo('✓ Fichier app.js v4 chargé');
+logInfo('✓ app.js v5 chargé');

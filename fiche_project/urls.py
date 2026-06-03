@@ -23,7 +23,6 @@ def serve_sw(request):
         return HttpResponse('/* sw.js introuvable */', content_type='application/javascript', status=404)
     response = HttpResponse(content, content_type='application/javascript')
     response['Service-Worker-Allowed'] = '/'
-    # max-age=0 = revalider toujours, but use ETag/Last-Modified pour verifier les changes
     response['Cache-Control'] = 'public, max-age=0, must-revalidate'
     return response
 
@@ -45,6 +44,7 @@ def serve_manifest(request):
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
 
+
 def serve_offline(request):
     """Sert la page offline pour le Service Worker fallback."""
     candidates = [
@@ -64,10 +64,10 @@ def serve_offline(request):
     return response
 
 
-
 def serve_well_known(request):
     """Ignore les requêtes inutiles de Chrome DevTools."""
     return HttpResponse('{}', content_type='application/json', status=204)
+
 
 urlpatterns = [
     # Ignorer les requêtes inutiles
@@ -76,7 +76,8 @@ urlpatterns = [
     # PWA — toujours en premier
     path('sw.js', serve_sw, name='sw'),
     path('manifest.json', serve_manifest, name='manifest'),
-    path('offline.html', serve_offline, name='offline'),
+    path('offline/', serve_offline, name='offline'),  # CHANGÉ: /offline.html → /offline/
+    path('offline.html', serve_offline, name='offline_html'),  # GARDÉ pour compatibilité
 
     # Favicon
     path('favicon.ico', RedirectView.as_view(url='/static/icons/icon-192.png', permanent=True)),
