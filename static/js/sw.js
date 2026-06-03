@@ -10,15 +10,12 @@ const STORE = 'fiches_locales';
 
 const ASSETS = [
   '/',
-  '/inspection/fiches/',
   '/connexion/',
   '/static/css/bootstrap.min.css',
   '/static/css/style.css',
   '/static/css/fiche-mobile.css',
   '/static/js/bootstrap.bundle.min.js',
   '/static/js/app.js',
-  '/static/js/offline-detail.js',
-  '/static/js/offline-edit.js',
   '/static/icons/bootstrap-icons.css',
   '/manifest.json',
   '/static/icons/icon-192.png',
@@ -267,7 +264,7 @@ function serveLocalFicheHTML(localId) {
 <body>
     <div class="container-lg">
         <div class="mb-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <a href="/inspection/fiches/" class="btn btn-outline-secondary btn-sm">
+            <a href="/fiches/" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Retour
             </a>
             <div class="d-flex gap-2">
@@ -312,7 +309,6 @@ function serveLocalFicheHTML(localId) {
     </div>
 
     <script src="/static/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/offline-detail.js"></script>
 </body>
 </html>`;
   
@@ -547,14 +543,5 @@ self.addEventListener('message', (event) => {
     });
   }
 });
-
-// ── Periodic Sync ──
-if ('periodicSync' in self.registration) {
-  self.addEventListener('periodicsync', (event) => {
-    if (event.tag === 'periodic-sync-fiches') {
-      event.waitUntil(syncFiches());
-    }
-  });
-}
 
 console.log('[SW] Service Worker chargé - version v14');

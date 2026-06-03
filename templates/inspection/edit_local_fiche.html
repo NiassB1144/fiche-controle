@@ -518,6 +518,10 @@
   const TOTAL_ETAPES = 6;
   let ficheOriginale = null;
 
+  // Récupérer l'ID local depuis le template Django
+  const LOCAL_ID_RAW = '{{ local_id }}';
+  const LOCAL_ID = parseInt(LOCAL_ID_RAW, 10);
+
   function showToast(message, type) {
     const toast = document.getElementById('mobile-toast');
     if (!toast) return;
@@ -589,9 +593,7 @@
   }
 
   async function chargerFiche() {
-    const local_id = '{{ local_id }}';
-    
-    if (!local_id || local_id === 'None' || local_id === '') {
+    if (isNaN(LOCAL_ID)) {
       showToast('ID de fiche invalide', 'danger');
       setTimeout(() => { window.location.href = '/fiches/'; }, 1500);
       return;
@@ -605,9 +607,9 @@
     try {
       let fiche;
       if (window.FicheApp.getFicheByLocalId) {
-        fiche = await window.FicheApp.getFicheByLocalId(local_id);
+        fiche = await window.FicheApp.getFicheByLocalId(LOCAL_ID);
       } else if (window.FicheApp.getFiche) {
-        fiche = await window.FicheApp.getFiche(local_id);
+        fiche = await window.FicheApp.getFiche(LOCAL_ID);
       }
 
       if (!fiche) {
@@ -640,6 +642,13 @@
     const data = Object.fromEntries(formData.entries());
     data.statut = statut;
 
+    // Supprimer les champs vides
+    Object.keys(data).forEach(key => {
+      if (data[key] === '' && key !== 'statut') {
+        delete data[key];
+      }
+    });
+
     const btn = document.getElementById('btn-enregistrer') || document.getElementById('btn-terminer');
     const originalText = btn ? btn.innerHTML : '';
     if (btn) {
@@ -648,13 +657,17 @@
     }
 
     try {
-      await window.FicheApp.updateFiche('{{ local_id }}', data);
+      console.log('[sauvegarder] Appel updateFiche avec:', { local_id: LOCAL_ID, data: data });
+      
+      // Appel avec l'ID en nombre (CORRECTION ICI)
+      await window.FicheApp.updateFiche(LOCAL_ID, data);
+      
       showToast('Fiche modifiée avec succès !', 'success');
       setTimeout(() => {
-        window.location.href = `/inspection/fiche/local/{{ local_id }}/detail/`;
+        window.location.href = '/inspection/fiche/local/' + LOCAL_ID + '/detail/';
       }, 1000);
     } catch (error) {
-      console.error('Erreur:', error);
+      console.error('[sauvegarder] Erreur:', error);
       showToast('Erreur: ' + error.message, 'danger');
       if (btn) {
         btn.disabled = false;

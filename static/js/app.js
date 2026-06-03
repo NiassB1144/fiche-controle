@@ -5,7 +5,7 @@
 
 const LOG_PREFIX = '[FicheApp]';
 const DB_NAME = 'ficheControleDB';
-const DB_VERSION = 6;  // Version incrémentée pour éviter les conflits
+const DB_VERSION = 6;
 const STORE = 'fiches_locales';
 
 // ========================================================================
@@ -71,7 +71,6 @@ function ouvrirDB() {
         logInfo('ObjectStore créé:', STORE);
       }
       
-      // Créer la queue de synchronisation si elle n'existe pas
       if (!db.objectStoreNames.contains('sync_queue')) {
         const queueStore = db.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
         queueStore.createIndex('status', 'status', { unique: false });
@@ -108,7 +107,6 @@ async function sauvegarderLocalement(donnees) {
     const tx = db.transaction(STORE, 'readwrite');
     const store = tx.objectStore(STORE);
     
-    // Utiliser l'ID existant ou en créer un nouveau
     let local_id = donnees.local_id;
     if (!local_id) {
       local_id = Date.now();
@@ -229,9 +227,8 @@ async function deleteFiche(local_id) {
 async function deleteFicheLocal(local_id) {
   return deleteFiche(local_id);
 }
-
 // ========================================================================
-// CRUD - MODIFICATION
+// CRUD - MODIFICATION (CORRIGÉE)
 // ========================================================================
 async function updateFiche(local_id, donnees) {
   try {
@@ -249,19 +246,33 @@ async function updateFiche(local_id, donnees) {
     };
     
     const db = await ouvrirDB();
-    const tx = db.transaction(STORE, 'readwrite');
-    const store = tx.objectStore(STORE);
     
+    // CRÉER UNE NOUVELLE PROMISE POUR LA TRANSACTION
     return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE], 'readwrite');
+      const store = tx.objectStore(STORE);
+      
       const req = store.put(updatedFiche);
+      
       req.onsuccess = () => {
         logInfo('✓ Fiche modifiée', { local_id });
         afficherNotification('Fiche mise à jour ✓', 'success');
         resolve(updatedFiche);
       };
+      
       req.onerror = () => {
         logError('Erreur mise à jour', req.error);
         reject(req.error);
+      };
+      
+      // S'assurer que la transaction est complète
+      tx.oncomplete = () => {
+        console.log('[updateFiche] Transaction complète');
+      };
+      
+      tx.onerror = () => {
+        console.error('[updateFiche] Erreur transaction:', tx.error);
+        reject(tx.error);
       };
     });
   } catch (err) {
@@ -493,7 +504,6 @@ async function renderLocalFiches() {
       </div>
     `).join('');
     
-    // Gestion des boutons de suppression
     container.querySelectorAll('.btn-delete-local').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -512,7 +522,7 @@ async function renderLocalFiches() {
 }
 
 // ========================================================================
-// SOUMISSION FORMULAIRE
+// SOUMISSION FORMULAIRE - CORRIGÉE AVEC BONNES URLs
 // ========================================================================
 async function soumettreFormulaire(statut) {
   const entreprise = document.querySelector('[name="entreprise"]')?.value?.trim();
@@ -563,6 +573,7 @@ async function soumettreFormulaire(statut) {
         throw new Error('Erreur lors de la sauvegarde');
       }
       
+      // CORRIGÉ: redirection vers /inspection/fiche/local/...
       setTimeout(() => {
         window.location.href = `/inspection/fiche/local/${local_id}/detail/`;
       }, 1000);
@@ -594,7 +605,7 @@ async function soumettreFormulaire(statut) {
       }
       afficherNotification('✅ Fiche enregistrée avec succès !', 'success');
       setTimeout(() => { 
-        window.location.href = `/inspection/fiche/${data.id}/detail/`; 
+        window.location.href = `/fiches/${data.id}/detail/`; 
       }, 1500);
     } else {
       const err = await resp.json();
