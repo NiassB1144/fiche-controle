@@ -5,7 +5,7 @@
 
 const LOG_PREFIX = '[FicheApp]';
 const DB_NAME = 'ficheControleDB';
-const DB_VERSION = 5;  // Version incrémentée pour éviter les conflits
+const DB_VERSION = 6;  // Version incrémentée pour éviter les conflits
 const STORE = 'fiches_locales';
 
 // ========================================================================

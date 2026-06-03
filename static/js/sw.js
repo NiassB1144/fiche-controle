@@ -5,7 +5,7 @@
 
 const CACHE_NAME = 'fiche-controle-v14';
 const DB_NAME = 'ficheControleDB';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const STORE = 'fiches_locales';
 
 const ASSETS = [
